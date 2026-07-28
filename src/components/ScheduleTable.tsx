@@ -312,6 +312,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
       case 'purple': return 'border-purple-500 bg-purple-50/60 dark:bg-purple-950/20';
       case 'rose': return 'border-rose-500 bg-rose-50/60 dark:bg-rose-950/20';
       case 'cyan': return 'border-cyan-500 bg-cyan-50/60 dark:bg-cyan-950/20';
+      case 'indigo': return 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/20';
       default: return 'border-amber-500 bg-slate-800/80';
     }
   };
@@ -613,12 +614,9 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                                     {cat.title}
                                   </span>
                                   <button
-                                    onClick={() => {
-                                      setEditingCategoryId(cat.id);
-                                      setEditingCatTitle(cat.title);
-                                    }}
+                                    onClick={() => onEditMainCategory(cat)}
                                     className="p-1 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded transition shrink-0"
-                                    title="แก้ไขชื่อหัวข้อหลัก"
+                                    title="แก้ไขหัวข้อหลัก"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>

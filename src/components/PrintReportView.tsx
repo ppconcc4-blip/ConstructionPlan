@@ -220,37 +220,52 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         @media print {
           @page {
             size: ${pageSize === 'A3' ? 'A3 landscape' : 'A4 landscape'};
-            margin: 4mm;
+            margin: 20mm !important;
+          }
+          body, html, #root, .bg-slate-950, .print-sheet, .overflow-x-auto, table, div {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            height: auto !important;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+          }
+          ::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
           }
           body, html {
-            width: 100% !important;
-            height: 100% !important;
             background: white !important;
             color: black !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
-            font-size: 9px !important;
+            font-size: 8px !important;
           }
           .print\\:hidden {
             display: none !important;
           }
           .print-sheet {
             width: 100% !important;
-            max-width: none !important;
+            max-width: 100% !important;
             min-height: auto !important;
             margin: 0 !important;
-            padding: 2mm !important;
+            padding: 0 !important;
             box-shadow: none !important;
+            background: white !important;
           }
           table {
-            font-size: 8.5px !important;
+            font-size: 7.5px !important;
             width: 100% !important;
+            border-collapse: collapse !important;
           }
           th, td {
             padding: 1.5px 2px !important;
+            border: 1px solid #cbd5e1 !important;
+            font-size: 7px !important;
+            line-height: 1.15 !important;
           }
           img {
-            max-height: 45px !important;
+            max-height: 40px !important;
             object-fit: contain;
           }
         }
@@ -258,7 +273,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           .print-sheet {
             width: ${pageSize === 'A3' ? '420mm' : '297mm'};
             min-height: ${pageSize === 'A3' ? '297mm' : '210mm'};
-            padding: 6mm 8mm;
+            padding: 20mm;
           }
         }
       `}</style>
