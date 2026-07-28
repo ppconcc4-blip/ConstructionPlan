@@ -1,0 +1,6 @@
+{
+  "name": "Construction Schedule Planner",
+  "description": "ระบบวางแผนและติดตามงานก่อสร้าง พร้อมตารางรายสัปดาห์/รายเดือน และ S-Curve",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
