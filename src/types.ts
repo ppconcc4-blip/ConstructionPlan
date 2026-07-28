@@ -53,4 +53,6 @@ export interface PeriodHeader {
   periodIndex: number; // 1, 2, 3...
   label: string;       // "W1", "W2" or "ม.ค. 69", "ก.พ. 69"
   subLabel?: string;   // e.g. "01-07 ก.ค."
+  startDateISO?: string; // YYYY-MM-DD
+  endDateISO?: string;   // YYYY-MM-DD
 }

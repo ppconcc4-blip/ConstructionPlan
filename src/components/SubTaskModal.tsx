@@ -33,7 +33,7 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
   const [startDateISO, setStartDateISO] = useState('');
   const [endDateISO, setEndDateISO] = useState('');
   const [durationDays, setDurationDays] = useState(14);
-  const [budget, setBudget] = useState(200000);
+  const [budget, setBudget] = useState(0);
   const [assignee, setAssignee] = useState('');
   const [plannedProgress, setPlannedProgress] = useState(100);
   const [actualProgress, setActualProgress] = useState(0);
@@ -331,7 +331,7 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
               id="subtask-budget-input"
               type="number"
               min="0"
-              step="5000"
+              step="0.01"
               value={budget}
               onChange={(e) => setBudget(Number(e.target.value))}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"

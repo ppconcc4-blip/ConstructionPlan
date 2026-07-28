@@ -10,6 +10,8 @@ import { MainCategoryModal } from './components/MainCategoryModal';
 import { SubTaskModal } from './components/SubTaskModal';
 import { PrintReportView } from './components/PrintReportView';
 import { exportToCSV } from './utils/constructionUtils';
+import { GoogleDriveSyncModal } from './components/GoogleDriveSyncModal';
+import { getAccessToken, uploadBackupToDrive, initAuth, googleSignIn } from './utils/googleDriveSync';
 
 const LOCAL_STORAGE_KEY = 'construction_projects_v1';
 
@@ -42,7 +44,6 @@ export default function App() {
   });
 
   const [viewMode, setViewMode] = useState<ViewMode>('weekly');
-  const [showSCurveInTable, setShowSCurveInTable] = useState(false);
 
   // Modals state
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -56,6 +57,7 @@ export default function App() {
   const [editingSubTask, setEditingSubTask] = useState<SubTask | null>(null);
 
   const [isPrintViewOpen, setIsPrintViewOpen] = useState(false);
+  const [isGDSyncModalOpen, setIsGDSyncModalOpen] = useState(false);
 
   // Sync to localStorage
   useEffect(() => {
@@ -65,6 +67,91 @@ export default function App() {
       console.error('Failed to save projects to localStorage:', e);
     }
   }, [projects]);
+
+  // Debounced Auto-sync to Google Drive when projects change
+  useEffect(() => {
+    const isAutoSyncEnabled = localStorage.getItem('gd_auto_sync') === 'true';
+    if (!isAutoSyncEnabled) return;
+
+    const token = getAccessToken();
+    if (token) {
+      const delayDebounceFn = setTimeout(() => {
+        uploadBackupToDrive(token, projects).then((res) => {
+          if (res.success) {
+            console.log('Auto-synced successfully to Google Drive');
+            localStorage.setItem('gd_last_sync_time', new Date().toLocaleString('th-TH'));
+          } else {
+            console.warn('Auto-sync to Google Drive failed:', res.error);
+          }
+        });
+      }, 3000); // 3-second debounce to limit write rate
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [projects]);
+
+  const [gdUser, setGdUser] = useState<any | null>(null);
+  const [gdToken, setGdToken] = useState<string | null>(null);
+  const [isGdSaving, setIsGdSaving] = useState(false);
+
+  // Track Google Auth state
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (currentUser: any, accessToken: string) => {
+        setGdUser(currentUser);
+        setGdToken(accessToken);
+      },
+      () => {
+        setGdUser(null);
+        setGdToken(null);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Manual save to Google Drive handler
+  const handleGDSave = async () => {
+    let currentToken = gdToken || getAccessToken();
+    if (!currentToken) {
+      const confirmLogin = window.confirm('ยังไม่ได้เชื่อมต่อบัญชี Google! คุณต้องการเข้าสู่ระบบและเชื่อมต่อ Google Drive เพื่อบันทึกข้อมูลหรือไม่?');
+      if (confirmLogin) {
+        try {
+          setIsGdSaving(true);
+          const res = await googleSignIn();
+          if (res) {
+            setGdUser(res.user);
+            setGdToken(res.accessToken);
+            currentToken = res.accessToken;
+          } else {
+            setIsGdSaving(false);
+            return;
+          }
+        } catch (err: any) {
+          alert(`เข้าสู่ระบบไม่สำเร็จ: ${err.message || err}`);
+          setIsGdSaving(false);
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
+    if (!currentToken) return;
+
+    setIsGdSaving(true);
+    try {
+      const res = await uploadBackupToDrive(currentToken, projects);
+      if (res.success) {
+        localStorage.setItem('gd_last_sync_time', new Date().toLocaleString('th-TH'));
+        alert('บันทึกและสำรองข้อมูลไปยัง Google Drive เรียบร้อยแล้ว!');
+      } else {
+        alert(`บันทึกไม่สำเร็จ: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(`เกิดข้อผิดพลาดขณะบันทึก: ${err.message || err}`);
+    } finally {
+      setIsGdSaving(false);
+    }
+  };
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0] || INITIAL_PROJECTS[0];
 
@@ -251,7 +338,7 @@ export default function App() {
                 weight: subTaskData.weight || 5,
                 plannedProgress: subTaskData.plannedProgress ?? 100,
                 actualProgress: subTaskData.actualProgress ?? 0,
-                budget: subTaskData.budget || 100000,
+                budget: subTaskData.budget !== undefined ? subTaskData.budget : 0,
                 assignee: subTaskData.assignee || '',
                 status: (subTaskData.actualProgress ?? 0) >= 100 ? 'completed' : (subTaskData.actualProgress ?? 0) > 0 ? 'in_progress' : 'not_started',
               };
@@ -465,9 +552,12 @@ export default function App() {
         }}
         onDeleteProject={handleDeleteProject}
         onExportCSV={handleExportCSV}
-        onExportJSON={handleExportJSON}
-        onImportJSON={handleImportJSON}
-        onPrint={() => setIsPrintViewOpen(true)}
+        onPrint={() => {
+          setIsPrintViewOpen(true);
+        }}
+        onOpenGDSyncModal={() => setIsGDSyncModalOpen(true)}
+        onGDSave={handleGDSave}
+        isGDSaving={isGdSaving}
       />
 
       {/* Main Content Dashboard */}
@@ -505,18 +595,7 @@ export default function App() {
                 onQuickUpdateProgress={handleQuickUpdateProgress}
                 onUpdateSubTask={handleUpdateSubTask}
                 onUpdateMainCategory={handleUpdateMainCategory}
-                showSCurveInTable={showSCurveInTable}
-                onToggleSCurveInTable={() => setShowSCurveInTable(!showSCurveInTable)}
               />
-              {showSCurveInTable && (
-                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6">
-                  <SCurveChart 
-                    project={activeProject} 
-                    viewMode={viewMode}
-                    onChangeViewMode={setViewMode}
-                  />
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -562,6 +641,18 @@ export default function App() {
         periodType={activeProject?.periodType || 'weekly'}
         projectStartDate={activeProject?.startDate || ''}
         nextCodeDefault={nextSubTaskCodeDefault}
+      />
+
+      <GoogleDriveSyncModal
+        isOpen={isGDSyncModalOpen}
+        onClose={() => setIsGDSyncModalOpen(false)}
+        projects={projects}
+        onRestoreProjects={(restored) => {
+          setProjects(restored);
+          if (restored.length > 0) {
+            setActiveProjectId(restored[0].id);
+          }
+        }}
       />
 
     </div>

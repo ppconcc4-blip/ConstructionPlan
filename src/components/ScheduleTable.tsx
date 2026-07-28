@@ -8,7 +8,9 @@ import {
   calculateTaskStatus, 
   formatTHB,
   getPeriodDates,
-  convertDatesToPeriods
+  convertDatesToPeriods,
+  calculateGanttBarPosition,
+  getMonthGroupsForWeekly
 } from '../utils/constructionUtils';
 import { 
   Plus, 
@@ -361,17 +363,6 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
               />
               ผลงานจริง %
             </label>
-            {onToggleSCurveInTable && (
-              <label className="flex items-center gap-1.5 cursor-pointer hover:text-white transition pl-3 border-l border-slate-700">
-                <input 
-                  type="checkbox" 
-                  checked={showSCurveInTable} 
-                  onChange={onToggleSCurveInTable}
-                  className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-800"
-                />
-                กราฟ S-Curve
-              </label>
-            )}
           </div>
 
           {/* Status Filter */}
@@ -449,20 +440,32 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 )}
 
                 {/* Period Dynamic Timeline Headers (Weeks or Months) */}
-                {periodHeaders.map((header) => (
-                  <th
-                    key={header.periodIndex}
-                    rowSpan={2}
-                    className="py-2 px-1 text-center min-w-[50px] max-w-[75px] border-r border-slate-700/60 bg-slate-800/90 align-middle"
-                  >
-                    <div className="font-bold text-amber-400 text-[11px]">{header.label}</div>
-                    {header.subLabel && (
-                      <div className="text-[9px] text-slate-400 font-normal truncate mt-0.5">
-                        {header.subLabel}
-                      </div>
-                    )}
-                  </th>
-                ))}
+                {viewMode === 'weekly' ? (
+                  getMonthGroupsForWeekly(periodHeaders).map((group, idx) => (
+                    <th
+                      key={idx}
+                      colSpan={group.colSpan}
+                      className="py-1.5 px-1 text-center bg-slate-800/95 border-b border-r border-slate-700/80 text-amber-300 normal-case font-bold text-[11px]"
+                    >
+                      {group.label}
+                    </th>
+                  ))
+                ) : (
+                  periodHeaders.map((header) => (
+                    <th
+                      key={header.periodIndex}
+                      rowSpan={2}
+                      className="py-2 px-1 text-center min-w-[50px] max-w-[75px] border-r border-slate-700/60 bg-slate-800/90 align-middle"
+                    >
+                      <div className="font-bold text-amber-400 text-[11px]">{header.label}</div>
+                      {header.subLabel && (
+                        <div className="text-[9px] text-slate-400 font-normal truncate mt-0.5">
+                          {header.subLabel}
+                        </div>
+                      )}
+                    </th>
+                  ))
+                )}
 
                 <th rowSpan={2} className="py-2.5 px-2 w-16 text-center align-middle">
                   จัดการ
@@ -480,6 +483,19 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 <th className="py-1.5 px-2 w-20 text-center border-r border-slate-700 normal-case font-normal">
                   ระยะเวลา
                 </th>
+                {viewMode === 'weekly' && periodHeaders.map((header) => (
+                  <th
+                    key={header.periodIndex}
+                    className="py-1 px-1 text-center min-w-[50px] max-w-[75px] border-r border-slate-700/60 bg-slate-800/90 align-middle font-bold text-amber-400 text-[10px]"
+                  >
+                    <div>{header.label}</div>
+                    {header.subLabel && (
+                      <div className="text-[9px] text-slate-400 font-normal truncate mt-0.5">
+                        {header.subLabel}
+                      </div>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
 
@@ -857,18 +873,21 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
 
                              {/* Timeline Matrix Cell Bar */}
                             {periodHeaders.map((header) => {
-                              const inTaskPeriod = 
-                                header.periodIndex >= subTask.startPeriod && 
-                                header.periodIndex <= subTask.endPeriod;
+                              const barPos = calculateGanttBarPosition(
+                                subTaskDates.startDateISO,
+                                subTaskDates.endDateISO,
+                                header.startDateISO || '',
+                                header.endDateISO || ''
+                              );
 
-                              const isFirst = header.periodIndex === subTask.startPeriod;
-                              const isLast = header.periodIndex === subTask.endPeriod;
+                              const isTaskStartInCol = subTaskDates.startDateISO >= (header.startDateISO || '') && subTaskDates.startDateISO <= (header.endDateISO || '');
+                              const isTaskEndInCol = subTaskDates.endDateISO >= (header.startDateISO || '') && subTaskDates.endDateISO <= (header.endDateISO || '');
 
                               return (
                                 <td
                                   key={header.periodIndex}
                                   className={`py-2 px-0 text-center border-r border-slate-200 dark:border-slate-800/60 relative ${
-                                    inTaskPeriod ? 'bg-amber-500/5 dark:bg-amber-500/10' : ''
+                                    barPos.hasBar ? 'bg-amber-500/5 dark:bg-amber-500/10' : ''
                                   }`}
                                 >
                                   {viewMode === 'monthly' && (
@@ -879,21 +898,23 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                                       <div className="flex-1 h-full"></div>
                                     </div>
                                   )}
-                                  {inTaskPeriod && (
+                                  {barPos.hasBar && (
                                     <div
-                                      className={`h-4 relative z-10 flex items-center justify-center text-[9px] font-bold ${
+                                      style={{
+                                        left: `${barPos.leftPercent}%`,
+                                        width: `${barPos.widthPercent}%`,
+                                      }}
+                                      className={`h-4 absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center text-[9px] font-bold ${
                                         status === 'completed'
                                           ? 'bg-emerald-500 text-white'
                                           : status === 'delayed'
                                           ? 'bg-rose-500 text-white'
                                           : 'bg-blue-500 text-white'
-                                      } ${isFirst ? 'rounded-l-md ml-0.5' : ''} ${isLast ? 'rounded-r-md mr-0.5' : ''} ${
-                                        !isFirst && !isLast ? 'rounded-none w-full' : ''
-                                      }`}
-                                      title={`${subTask.title}: ผลงาน ${subTask.actualProgress}%`}
+                                      } ${isTaskStartInCol ? 'rounded-l-md' : ''} ${isTaskEndInCol ? 'rounded-r-md' : ''}`}
+                                      title={`${subTask.title}: ผลงาน ${subTask.actualProgress}% (${subTaskDates.startDate} - ${subTaskDates.endDate})`}
                                     >
-                                      {isFirst && (
-                                        <span className="truncate px-1 text-[8px]">
+                                      {isTaskStartInCol && (
+                                        <span className="truncate px-1 text-[8px] absolute left-0 w-full text-center">
                                           {subTask.actualProgress}%
                                         </span>
                                       )}

@@ -7,10 +7,10 @@ import {
   ChevronDown, 
   Printer, 
   Download, 
-  Upload, 
-  FolderCheck,
-  Edit,
-  Trash2
+  Edit, 
+  Trash2,
+  Cloud,
+  CloudUpload
 } from 'lucide-react';
 import { formatTHB, getProjectSummary } from '../utils/constructionUtils';
 import { ConfirmModal } from './ConfirmModal';
@@ -23,9 +23,10 @@ interface NavbarProps {
   onOpenEditProjectModal: (project: Project) => void;
   onDeleteProject: (projectId: string) => void;
   onExportCSV: () => void;
-  onExportJSON: () => void;
-  onImportJSON: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPrint: () => void;
+  onOpenGDSyncModal: () => void;
+  onGDSave: () => void;
+  isGDSaving?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,9 +37,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditProjectModal,
   onDeleteProject,
   onExportCSV,
-  onExportJSON,
-  onImportJSON,
   onPrint,
+  onOpenGDSyncModal,
+  onGDSave,
+  isGDSaving = false,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [confirmState, setConfirmState] = useState<{
@@ -225,29 +227,25 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              id="export-json-btn"
-              onClick={onExportJSON}
-              title="ส่งออกไฟล์สำรองข้อมูล JSON"
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 transition"
+              id="google-drive-sync-btn"
+              onClick={onOpenGDSyncModal}
+              title="ซิงก์ข้อมูลโครงการกับ Google Drive สำรองออนไลน์อัตโนมัติ"
+              className="flex items-center gap-1.5 bg-blue-900/40 hover:bg-blue-900/60 text-blue-200 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-blue-800/80 hover:border-blue-700 transition"
             >
-              <FolderCheck className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">สำรอง</span> JSON
+              <Cloud className="w-3.5 h-3.5 text-blue-400" />
+              <span>ซิงก์ Google Drive</span>
             </button>
 
-            <label
-              id="import-json-label"
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-700 transition cursor-pointer"
-              title="นำเข้าไฟล์โครงการ JSON"
+            <button
+              id="google-drive-save-btn"
+              onClick={onGDSave}
+              disabled={isGDSaving}
+              title="อัปโหลดสำรองข้อมูลโครงการปัจจุบันขึ้น Google Drive ทันที"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition active:scale-[0.98]"
             >
-              <Upload className="w-3.5 h-3.5 text-purple-400" />
-              <span className="hidden sm:inline">นำเข้า</span> JSON
-              <input
-                type="file"
-                accept=".json"
-                onChange={onImportJSON}
-                className="hidden"
-              />
-            </label>
+              <CloudUpload className={`w-3.5 h-3.5 ${isGDSaving ? 'animate-bounce' : ''}`} />
+              <span>{isGDSaving ? 'กำลังบันทึก...' : 'บันทึกขึ้นคลาวด์'}</span>
+            </button>
 
             <button
               id="print-report-btn"

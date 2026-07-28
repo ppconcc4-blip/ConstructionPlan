@@ -4,10 +4,12 @@ import { Project, MainCategory, SubTask, PeriodHeader, TaskStatus } from '../typ
  * Format currency in THB
  */
 export function formatTHB(amount: number): string {
+  const hasDecimal = amount % 1 !== 0;
   return new Intl.NumberFormat('th-TH', {
     style: 'currency',
     currency: 'THB',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: hasDecimal ? 2 : 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
@@ -26,6 +28,13 @@ export function generatePeriodHeaders(
     'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
     'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
   ];
+
+  const formatISO = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   for (let i = 1; i <= totalPeriods; i++) {
     if (periodType === 'weekly') {
@@ -47,22 +56,89 @@ export function generatePeriodHeaders(
         periodIndex: i,
         label: `สัปดาห์ที่ ${i}`,
         subLabel: sub,
+        startDateISO: formatISO(weekStart),
+        endDateISO: formatISO(weekEnd),
       });
     } else {
       // Monthly
-      const monthDate = new Date(start.getFullYear(), start.getMonth() + (i - 1), 1);
-      const monthName = thaiMonthsShort[monthDate.getMonth()];
-      const thaiYearShort = (monthDate.getFullYear() + 543).toString().slice(-2);
+      const monthStart = new Date(start.getFullYear(), start.getMonth() + (i - 1), 1);
+      const monthEnd = new Date(start.getFullYear(), start.getMonth() + i, 0); // last day of that month
+      const monthName = thaiMonthsShort[monthStart.getMonth()];
+      const thaiYearShort = (monthStart.getFullYear() + 543).toString().slice(-2);
 
       headers.push({
         periodIndex: i,
         label: `${monthName} ${thaiYearShort}`,
         subLabel: `เดือนที่ ${i}`,
+        startDateISO: formatISO(monthStart),
+        endDateISO: formatISO(monthEnd),
       });
     }
   }
 
   return headers;
+}
+
+/**
+ * Calculate the Gantt bar position (left % and width %) for a task inside a specific period column
+ */
+export function calculateGanttBarPosition(
+  taskStartDateStr: string,
+  taskEndDateStr: string,
+  colStartDateStr: string,
+  colEndDateStr: string
+): { hasBar: boolean; leftPercent: number; widthPercent: number } {
+  const taskStart = new Date(taskStartDateStr);
+  const taskEnd = new Date(taskEndDateStr);
+  const colStart = new Date(colStartDateStr);
+  const colEnd = new Date(colEndDateStr);
+
+  if (
+    isNaN(taskStart.getTime()) ||
+    isNaN(taskEnd.getTime()) ||
+    isNaN(colStart.getTime()) ||
+    isNaN(colEnd.getTime())
+  ) {
+    return { hasBar: false, leftPercent: 0, widthPercent: 0 };
+  }
+
+  // Clear times to make date-only comparison accurate
+  taskStart.setHours(0, 0, 0, 0);
+  taskEnd.setHours(0, 0, 0, 0);
+  colStart.setHours(0, 0, 0, 0);
+  colEnd.setHours(0, 0, 0, 0);
+
+  // If there's no intersection
+  if (taskStart > colEnd || taskEnd < colStart) {
+    return { hasBar: false, leftPercent: 0, widthPercent: 0 };
+  }
+
+  // Calculate intersection range
+  const intersectStart = new Date(Math.max(taskStart.getTime(), colStart.getTime()));
+  const intersectEnd = new Date(Math.min(taskEnd.getTime(), colEnd.getTime()));
+
+  // Column total days
+  const colTotalDays = Math.round((colEnd.getTime() - colStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+  // Days from column start to intersection start
+  const daysFromStart = Math.round((intersectStart.getTime() - colStart.getTime()) / (24 * 60 * 60 * 1000));
+
+  // Intersection duration in days
+  const intersectDays = Math.round((intersectEnd.getTime() - intersectStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
+  // Calculate percentages
+  let leftPercent = (daysFromStart / colTotalDays) * 100;
+  let widthPercent = (intersectDays / colTotalDays) * 100;
+
+  // Ensure bounds
+  leftPercent = Math.max(0, Math.min(100, leftPercent));
+  widthPercent = Math.max(1, Math.min(100 - leftPercent, widthPercent));
+
+  return {
+    hasBar: true,
+    leftPercent,
+    widthPercent,
+  };
 }
 
 /**
@@ -307,9 +383,10 @@ export function getProjectSummary(project: Project) {
 /**
  * Calculate S-Curve Accumulated Data for Graph
  */
-export function calculateSCurveData(project: Project) {
+export function calculateSCurveData(project: Project, customPeriodType?: 'weekly' | 'monthly') {
+  const periodType = customPeriodType || project.periodType || 'weekly';
   const periodCount = project.totalPeriods || 12;
-  const periodHeaders = generatePeriodHeaders(project.startDate, periodCount, project.periodType);
+  const periodHeaders = generatePeriodHeaders(project.startDate, periodCount, periodType);
 
   let cumulativePlannedWeight = 0;
   let cumulativeActualWeight = 0;
@@ -363,6 +440,74 @@ export function calculateSCurveData(project: Project) {
 }
 
 /**
+ * Calculate S-Curve variance in days at a specific period index using linear interpolation
+ */
+export function calculateDaysVarianceForPeriod(
+  actual: number,
+  idx: number,
+  curveData: { plannedProgress: number }[],
+  periodType: 'weekly' | 'monthly'
+): number {
+  const daysPerPeriod = periodType === 'weekly' ? 7 : 30;
+  const elapsedPeriods = idx + 1;
+
+  if (actual === 0) {
+    // If progress is 0, they are behind by the entire elapsed duration
+    return -elapsedPeriods * daysPerPeriod;
+  }
+
+  // S-Curve values list
+  const P = [0, ...curveData.map(d => d.plannedProgress)];
+  const N = curveData.length;
+
+  let targetPeriod = 0;
+  let found = false;
+
+  for (let j = 0; j < P.length - 1; j++) {
+    const p1 = P[j];
+    const p2 = P[j + 1];
+    if (actual >= p1 && actual <= p2) {
+      if (p2 !== p1) {
+        const fraction = (actual - p1) / (p2 - p1);
+        targetPeriod = j + fraction;
+      } else {
+        targetPeriod = j;
+      }
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    // If actual is greater than the maximum planned progress
+    const maxPlanned = P[P.length - 1];
+    if (actual >= maxPlanned) {
+      // Linear extrapolation using the last active planned progress rate
+      let lastSlope = 0;
+      for (let k = P.length - 1; k > 0; k--) {
+        if (P[k] - P[k - 1] > 0) {
+          lastSlope = P[k] - P[k - 1];
+          break;
+        }
+      }
+      if (lastSlope > 0) {
+        targetPeriod = N + (actual - maxPlanned) / lastSlope;
+      } else {
+        targetPeriod = N;
+      }
+    } else {
+      targetPeriod = 0;
+    }
+  }
+
+  const varianceInPeriods = targetPeriod - elapsedPeriods;
+  const varianceInDays = varianceInPeriods * daysPerPeriod;
+
+  // Round to 1 decimal place
+  return Math.round(varianceInDays * 10) / 10;
+}
+
+/**
  * CSV Export Generator
  */
 export function exportToCSV(project: Project) {
@@ -392,3 +537,55 @@ export function exportToCSV(project: Project) {
   link.click();
   document.body.removeChild(link);
 }
+
+/**
+ * Get month name and short Thai Buddhist year from an ISO date string
+ */
+export function getMonthLabelFromISO(isoStr: string): string {
+  if (!isoStr) return '';
+  const date = new Date(isoStr);
+  if (isNaN(date.getTime())) return '';
+  const thaiMonthsShort = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+  const monthName = thaiMonthsShort[date.getMonth()];
+  const thaiYearShort = (date.getFullYear() + 543).toString().slice(-2);
+  return `${monthName} ${thaiYearShort}`;
+}
+
+export interface MonthGroup {
+  label: string;
+  colSpan: number;
+}
+
+/**
+ * Group weekly headers by month for two-tier header display
+ */
+export function getMonthGroupsForWeekly(periodHeaders: PeriodHeader[]): MonthGroup[] {
+  const groups: MonthGroup[] = [];
+  if (periodHeaders.length === 0) return groups;
+
+  let currentLabel = '';
+  let currentCount = 0;
+
+  periodHeaders.forEach((h) => {
+    const label = h.startDateISO ? getMonthLabelFromISO(h.startDateISO) : 'ไม่ทราบเดือน';
+    if (label === currentLabel) {
+      currentCount++;
+    } else {
+      if (currentCount > 0) {
+        groups.push({ label: currentLabel, colSpan: currentCount });
+      }
+      currentLabel = label;
+      currentCount = 1;
+    }
+  });
+
+  if (currentCount > 0) {
+    groups.push({ label: currentLabel, colSpan: currentCount });
+  }
+
+  return groups;
+}
+

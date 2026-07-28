@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Project } from '../types';
 import { 
   getProjectSummary, 
   generatePeriodHeaders, 
   getCategoryMetrics, 
   formatTHB,
-  getPeriodDates
+  getPeriodDates,
+  calculateSCurveData,
+  calculateDaysVarianceForPeriod,
+  calculateGanttBarPosition,
+  calculateTaskStatus,
+  getMonthGroupsForWeekly
 } from '../utils/constructionUtils';
 import { SCurveChart } from './SCurveChart';
 
@@ -25,9 +30,56 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
   const [showSCurve, setShowSCurve] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [gridRect, setGridRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !showSCurve) return;
+
+    const update = () => {
+      if (!containerRef.current) return;
+      const firstCell = containerRef.current.querySelector('.period-cell-first-first');
+      const lastCell = containerRef.current.querySelector('.period-cell-first-last');
+      const lastRowEl = containerRef.current.querySelector('.last-task-row');
+      
+      if (firstCell && lastCell && lastRowEl) {
+        const containerBounds = containerRef.current.getBoundingClientRect();
+        const firstBounds = firstCell.getBoundingClientRect();
+        const lastBounds = lastCell.getBoundingClientRect();
+        const lastRowBounds = lastRowEl.getBoundingClientRect();
+        
+        setGridRect({
+          left: firstBounds.left - containerBounds.left,
+          top: firstBounds.top - containerBounds.top,
+          width: lastBounds.right - firstBounds.left,
+          height: lastRowBounds.bottom - firstBounds.top
+        });
+      }
+    };
+
+    // Run immediately and after paint
+    update();
+    const timeoutId = setTimeout(update, 100);
+
+    const observer = new ResizeObserver(() => {
+      update();
+    });
+    observer.observe(containerRef.current);
+
+    window.addEventListener('beforeprint', update);
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+      window.removeEventListener('beforeprint', update);
+    };
+  }, [showSCurve, showBudget, showPlanned, showActual, printPeriodType]);
   
   const summary = getProjectSummary(project);
   const periodHeaders = generatePeriodHeaders(project.startDate, project.totalPeriods, printPeriodType);
+  const curveData = calculateSCurveData(project, printPeriodType);
+  const colSpanBeforePeriods = 5 + (showBudget ? 1 : 0) + (showPlanned ? 1 : 0) + (showActual ? 1 : 0);
 
   const headerImageUrl = "https://lh3.googleusercontent.com/d/1JDcmdmipc6mfv9cXLIYIyUozIo-M7RIY=s1200";
   const footerImageUrl = "https://lh3.googleusercontent.com/d/1DMp-DsbtKczK8HLrBbQkGdBQ4hN5E2ge=s1200";
@@ -69,7 +121,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-xs text-slate-300">
-            <span className="font-bold text-white mr-1">แสดงคอลัมน์:</span>
+            <span className="font-bold text-white mr-1">แสดงคอลัมน์ / ข้อมูล:</span>
             <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
               <input 
                 type="checkbox" 
@@ -96,17 +148,18 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                 className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-800"
               />
               ผลงานจริง %
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
-                <input 
-                  type="checkbox" 
-                  checked={showSCurve} 
-                  onChange={(e) => setShowSCurve(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-800"
-                />
-                กราฟ S-Curve
-              </label>
-            </div>
+            </label>
+            <span className="text-slate-500 px-0.5">|</span>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white font-semibold text-rose-400">
+              <input 
+                type="checkbox" 
+                checked={showSCurve} 
+                onChange={(e) => setShowSCurve(e.target.checked)}
+                className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-800"
+              />
+              กราฟ S-Curve
+            </label>
+          </div>
 
           <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
             <span className="text-slate-400">รูปแบบเวลา:</span>
@@ -259,67 +312,104 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
         {/* Schedule Table */}
         <div className="overflow-x-auto mb-3">
-          <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
-            <thead>
-              <tr className="bg-slate-200 text-slate-800 font-bold border-b border-slate-300 text-center">
-                <th rowSpan={2} className="p-1 border border-slate-300 w-8 align-middle">ลำดับงาน</th>
-                <th rowSpan={2} className="p-1 border border-slate-300 align-middle text-left">รายการงาน / หมวดงาน</th>
-                <th rowSpan={2} className="p-1 border border-slate-300 w-16 align-middle">วันเริ่ม</th>
-                <th rowSpan={2} className="p-1 border border-slate-300 w-16 align-middle">วันสิ้นสุด</th>
-                <th rowSpan={2} className="p-1 border border-slate-300 w-12 align-middle">ระยะเวลา</th>
-                {showBudget && <th rowSpan={2} className="p-1 border border-slate-300 w-20 text-right align-middle">งบประมาณ</th>}
-                {showPlanned && <th rowSpan={2} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
-                {showActual && <th rowSpan={2} className="p-1 border border-slate-300 w-10 align-middle text-emerald-700">จริง %</th>}
-                {periodHeaders.map((h) => (
-                  <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[8px] min-w-[28px]">
-                    {h.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {project.categories.map((cat) => {
-                const catM = getCategoryMetrics(cat);
-                const minStartPeriod = cat.subTasks.length > 0 ? Math.min(...cat.subTasks.map((st) => st.startPeriod)) : 1;
-                const maxEndPeriod = cat.subTasks.length > 0 ? Math.max(...cat.subTasks.map((st) => st.endPeriod)) : project.totalPeriods;
-                const catDates = getPeriodDates(project.startDate, minStartPeriod, maxEndPeriod, project.periodType);
+          <div className="relative inline-block min-w-full" ref={containerRef}>
+            <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
+              <thead>
+                <tr className="bg-slate-200 text-slate-800 font-bold border-b border-slate-300 text-center">
+                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-8 align-middle">ลำดับงาน</th>
+                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 align-middle text-left">รายการงาน / หมวดงาน</th>
+                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันเริ่ม</th>
+                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันสิ้นสุด</th>
+                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-12 align-middle">ระยะเวลา</th>
+                  {showBudget && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-20 text-right align-middle">งบประมาณ</th>}
+                  {showPlanned && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
+                  {showActual && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-emerald-700">จริง %</th>}
+                  
+                  {printPeriodType === 'weekly' ? (
+                    getMonthGroupsForWeekly(periodHeaders).map((group, idx) => (
+                      <th key={idx} colSpan={group.colSpan} className="p-0.5 border border-slate-300 text-center font-bold text-amber-800 bg-amber-50/20 text-[8px] align-middle">
+                        {group.label}
+                      </th>
+                    ))
+                  ) : (
+                    periodHeaders.map((h) => (
+                      <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[8px] min-w-[28px] align-middle">
+                        {h.label}
+                      </th>
+                    ))
+                  )}
+                </tr>
+                {printPeriodType === 'weekly' && (
+                  <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 text-center">
+                    {periodHeaders.map((h) => (
+                      <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px]">
+                        {h.label}
+                      </th>
+                    ))}
+                  </tr>
+                )}
+              </thead>
+              <tbody>
+                {project.categories.map((cat, catIdx) => {
+                  const catM = getCategoryMetrics(cat);
+                  const minStartPeriod = cat.subTasks.length > 0 ? Math.min(...cat.subTasks.map((st) => st.startPeriod)) : 1;
+                  const maxEndPeriod = cat.subTasks.length > 0 ? Math.max(...cat.subTasks.map((st) => st.endPeriod)) : project.totalPeriods;
+                  const catDates = getPeriodDates(project.startDate, minStartPeriod, maxEndPeriod, project.periodType);
 
-                return (
-                  <React.Fragment key={cat.id}>
-                    {/* Category Row */}
-                    <tr className="bg-slate-100 font-bold border-b border-slate-300">
-                      <td className="p-1 border border-slate-300 text-center">{cat.code}</td>
-                      <td className="p-1 border border-slate-300">{cat.title}</td>
-                      <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.startDateISO)}</td>
-                      <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.endDateISO)}</td>
-                      <td className="p-1 border border-slate-300 text-center text-[9px]">{catDates.durationText}</td>
-                      {showBudget && <td className="p-1 border border-slate-300 text-right">{formatTHB(catM.budget)}</td>}
-                      {showPlanned && <td className="p-1 border border-slate-300 text-center text-blue-700">{catM.plannedProgress}%</td>}
-                      {showActual && <td className="p-1 border border-slate-300 text-center text-emerald-700">{catM.actualProgress}%</td>}
-                      {periodHeaders.map((h) => (
-                        <td key={h.periodIndex} className="p-0.5 border border-slate-300 bg-slate-50 relative h-4">
-                          {printPeriodType === 'monthly' && (
-                            <div className="absolute inset-0 flex pointer-events-none">
-                              <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                              <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                              <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                              <div className="flex-1 h-full"></div>
-                            </div>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
+                  const lastCatIdx = project.categories.length - 1;
+                  const lastCat = project.categories[lastCatIdx];
+                  const lastCatHasSubTasks = lastCat && lastCat.subTasks.length > 0;
+                  const isLastTaskRowForCat = catIdx === lastCatIdx && !lastCatHasSubTasks;
+
+                  return (
+                    <React.Fragment key={cat.id}>
+                      {/* Category Row */}
+                      <tr className={`bg-slate-100 font-bold border-b border-slate-300 ${isLastTaskRowForCat ? 'last-task-row' : ''}`}>
+                        <td className="p-1 border border-slate-300 text-center">{cat.code}</td>
+                        <td className="p-1 border border-slate-300">{cat.title}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.startDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.endDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{catDates.durationText}</td>
+                        {showBudget && <td className="p-1 border border-slate-300 text-right">{formatTHB(catM.budget)}</td>}
+                        {showPlanned && <td className="p-1 border border-slate-300 text-center text-blue-700">{catM.plannedProgress}%</td>}
+                        {showActual && <td className="p-1 border border-slate-300 text-center text-emerald-700">{catM.actualProgress}%</td>}
+                        {periodHeaders.map((h, hIdx) => {
+                          const isFirstFirst = catIdx === 0 && hIdx === 0;
+                          const isFirstLast = catIdx === 0 && hIdx === periodHeaders.length - 1;
+                          return (
+                            <td 
+                              key={h.periodIndex} 
+                              className={`p-0.5 border border-slate-300 bg-slate-50 relative h-4 ${
+                                isFirstFirst ? 'period-cell-first-first' : ''
+                              } ${
+                                isFirstLast ? 'period-cell-first-last' : ''
+                              }`}
+                            >
+                              {printPeriodType === 'monthly' && (
+                                <div className="absolute inset-0 flex pointer-events-none">
+                                  <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                  <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                  <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                  <div className="flex-1 h-full"></div>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
 
                     {/* Subtask Rows */}
-                    {cat.subTasks.map((st) => {
+                    {cat.subTasks.map((st, stIdx) => {
                       const currentDates = getPeriodDates(project.startDate, st.startPeriod, st.endPeriod, project.periodType);
                       const startObj = new Date(st.startDate || currentDates.startDateISO);
                       const endObj = new Date(st.endDate || currentDates.endDateISO);
                       const diffTime = endObj.getTime() - startObj.getTime();
                       const durationDays = Math.max(1, Math.round(diffTime / (24 * 60 * 60 * 1000)) + 1);
 
+                      const isLastTaskRowForSubTask = catIdx === lastCatIdx && stIdx === cat.subTasks.length - 1;
+
                       return (
-                        <tr key={st.id} className="border-b border-slate-200">
+                        <tr key={st.id} className={`border-b border-slate-200 ${isLastTaskRowForSubTask ? 'last-task-row' : ''}`}>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{st.code}</td>
                           <td className="p-1 border border-slate-300 pl-3">{st.title}</td>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.startDate || currentDates.startDateISO)}</td>
@@ -330,46 +420,56 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                           {showActual && <td className="p-1 border border-slate-300 text-center font-bold text-emerald-700">{st.actualProgress}%</td>}
                           
                           {periodHeaders.map((h) => {
-                            const inRange = h.periodIndex >= st.startPeriod && h.periodIndex <= st.endPeriod;
-                            
-                            if (!inRange) {
-                              return (
-                                <td key={h.periodIndex} className="p-0.5 border border-slate-300 text-center bg-white relative h-4">
-                                  {printPeriodType === 'monthly' && (
-                                    <div className="absolute inset-0 flex pointer-events-none">
-                                      <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                      <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                      <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                      <div className="flex-1 h-full"></div>
-                                    </div>
-                                  )}
-                                </td>
-                              );
-                            }
-                            
-                            if (h.periodIndex === st.startPeriod) {
-                              const colSpan = Math.max(1, st.endPeriod - st.startPeriod + 1);
-                              return (
-                                <td key={h.periodIndex} colSpan={colSpan} className="p-0.5 border border-slate-300 bg-white text-center align-middle relative h-4">
-                                  {printPeriodType === 'monthly' && (
-                                    <div className="absolute inset-0 flex pointer-events-none z-0">
-                                      {Array.from({ length: colSpan }).map((_, idx) => (
-                                        <div key={idx} className="flex-1 flex border-r border-slate-300 last:border-r-0 h-full">
-                                          <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                          <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                          <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
-                                          <div className="flex-1 h-full"></div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  <div className="bg-slate-800 text-white w-full rounded-[2px] flex items-center justify-center text-[8px] font-bold truncate mx-auto h-[10px] relative z-10">
-                                    {showActual ? `${st.actualProgress}%` : ''}
+                            const taskStartDateISO = st.startDate || currentDates.startDateISO;
+                            const taskEndDateISO = st.endDate || currentDates.endDateISO;
+                            const status = calculateTaskStatus(st);
+
+                            const barPos = calculateGanttBarPosition(
+                              taskStartDateISO,
+                              taskEndDateISO,
+                              h.startDateISO || '',
+                              h.endDateISO || ''
+                            );
+
+                            const isTaskStartInCol = taskStartDateISO >= (h.startDateISO || '') && taskStartDateISO <= (h.endDateISO || '');
+                            const isTaskEndInCol = taskEndDateISO >= (h.startDateISO || '') && taskEndDateISO <= (h.endDateISO || '');
+
+                            return (
+                              <td 
+                                key={h.periodIndex} 
+                                className="p-0.5 border border-slate-300 text-center bg-white relative h-4"
+                              >
+                                {printPeriodType === 'monthly' && (
+                                  <div className="absolute inset-0 flex pointer-events-none">
+                                    <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                    <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                    <div className="flex-1 border-r border-dashed border-slate-300/70 h-full"></div>
+                                    <div className="flex-1 h-full"></div>
                                   </div>
-                                </td>
-                              );
-                            }
-                            return null;
+                                )}
+                                {barPos.hasBar && (
+                                  <div
+                                    style={{
+                                      left: `${barPos.leftPercent}%`,
+                                      width: `${barPos.widthPercent}%`,
+                                    }}
+                                    className={`h-[10px] absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center text-[7px] font-bold ${
+                                      status === 'completed'
+                                        ? 'bg-emerald-600 text-white'
+                                        : status === 'delayed'
+                                        ? 'bg-rose-600 text-white'
+                                        : 'bg-slate-700 text-white'
+                                    } ${isTaskStartInCol ? 'rounded-l-[2px]' : ''} ${isTaskEndInCol ? 'rounded-r-[2px]' : ''}`}
+                                  >
+                                    {isTaskStartInCol && showActual && (
+                                      <span className="truncate px-0.5 text-[7px] absolute left-0 w-full text-center">
+                                        {st.actualProgress}%
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            );
                           })}
                         </tr>
                       );
@@ -377,15 +477,265 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                   </React.Fragment>
                 );
               })}
+              {showSCurve && (
+                <>
+                  {/* Planned Cumulative Row */}
+                  <tr className={`bg-blue-50/40 font-bold border-t-2 ${showActual ? '' : 'border-b-2'} border-slate-300 break-inside-avoid`}>
+                    <td colSpan={colSpanBeforePeriods} className="p-1 border border-slate-300 text-right pr-2 text-[10px] font-bold text-blue-800">
+                      แผนงานสะสม (%)
+                    </td>
+                    {periodHeaders.map((h, idx) => {
+                      const val = curveData[idx]?.plannedProgress ?? 0;
+                      return (
+                        <td key={h.periodIndex} className="p-1 border border-slate-300 text-center text-[9px] font-mono font-bold text-blue-700 bg-blue-50/20">
+                          {val}%
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {showActual && (
+                    <>
+                      {/* Actual Cumulative Row */}
+                      <tr className="bg-emerald-50/40 font-bold border-b border-slate-300 break-inside-avoid">
+                        <td colSpan={colSpanBeforePeriods} className="p-1 border border-slate-300 text-right pr-2 text-[10px] font-bold text-emerald-800">
+                          ผลงานจริงสะสม (%)
+                        </td>
+                        {periodHeaders.map((h, idx) => {
+                          const val = curveData[idx]?.actualProgress ?? 0;
+                          return (
+                            <td 
+                              key={h.periodIndex} 
+                              className="p-1 border border-slate-300 text-center text-[9px] font-mono font-bold text-emerald-700 bg-emerald-50/20"
+                            >
+                              {val}%
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Variance Row (Ahead/Behind Plan) */}
+                      <tr className="bg-rose-50/30 font-bold border-b border-slate-300 break-inside-avoid">
+                        <td colSpan={colSpanBeforePeriods} className="p-1 border border-slate-300 text-right pr-2 text-[10px] font-bold text-rose-800">
+                          เร็ว/ช้ากว่าแผน (%)
+                        </td>
+                        {periodHeaders.map((h, idx) => {
+                          const actualVal = curveData[idx]?.actualProgress ?? 0;
+                          const plannedVal = curveData[idx]?.plannedProgress ?? 0;
+                          const diff = Math.round((actualVal - plannedVal) * 10) / 10;
+                          
+                          let displayVal = '';
+                          let textColorClass = '';
+                          
+                          if (diff < 0) {
+                            displayVal = `${diff}%`; // Will show with minus sign e.g., -5.3%
+                            textColorClass = 'text-red-600 font-extrabold';
+                          } else if (diff > 0) {
+                            displayVal = `+${diff}%`;
+                            textColorClass = 'text-emerald-700 font-extrabold';
+                          } else {
+                            displayVal = '0%';
+                            textColorClass = 'text-slate-500 font-bold';
+                          }
+                          
+                          return (
+                            <td 
+                              key={h.periodIndex} 
+                              className={`p-1 border border-slate-300 text-center text-[9px] font-mono ${textColorClass} bg-rose-50/10`}
+                            >
+                              {displayVal}
+                            </td>
+                          );
+                        })}
+                      </tr>
+
+                      {/* Variance Row (Ahead/Behind Plan - Days) */}
+                      <tr className="bg-rose-50/20 font-bold border-b-2 border-slate-300 break-inside-avoid">
+                        <td colSpan={colSpanBeforePeriods} className="p-1 border border-slate-300 text-right pr-2 text-[10px] font-bold text-rose-800">
+                          เร็ว/ช้ากว่าแผน (วัน)
+                        </td>
+                        {periodHeaders.map((h, idx) => {
+                          const actualVal = curveData[idx]?.actualProgress ?? 0;
+                          const daysVar = calculateDaysVarianceForPeriod(actualVal, idx, curveData, printPeriodType);
+                          
+                          let displayVal = '';
+                          let textColorClass = '';
+                          
+                          if (daysVar < 0) {
+                            displayVal = `${daysVar} วัน`; // Will show with minus sign e.g., -5.3 วัน
+                            textColorClass = 'text-red-600 font-extrabold';
+                          } else if (daysVar > 0) {
+                            displayVal = `+${daysVar} วัน`;
+                            textColorClass = 'text-emerald-700 font-extrabold';
+                          } else {
+                            displayVal = '0 วัน';
+                            textColorClass = 'text-slate-500 font-bold';
+                          }
+                          
+                          const isLastCell = idx === periodHeaders.length - 1;
+                          return (
+                            <td 
+                              key={h.periodIndex} 
+                              className={`p-1 border border-slate-300 text-center text-[9px] font-mono ${textColorClass} bg-rose-50/5 ${isLastCell ? 'period-cell-bottom-last' : ''}`}
+                            >
+                              {displayVal}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </>
+                  )}
+                </>
+              )}
             </tbody>
           </table>
+
+          {showSCurve && gridRect && (
+            <svg
+              className="absolute pointer-events-none"
+              style={{
+                left: gridRect.left,
+                top: gridRect.top,
+                width: gridRect.width,
+                height: gridRect.height,
+                overflow: 'visible',
+              }}
+            >
+              {(() => {
+                const getX = (i: number) => `${((i + 0.5) / periodHeaders.length) * 100}%`;
+                const paddingY = 0;
+                const getY = (val: number) => paddingY + (1 - val / 100) * (gridRect.height - 2 * paddingY);
+
+                return (
+                  <>
+                    {/* Planned Progress Line Segments */}
+                    {periodHeaders.slice(0, -1).map((_, idx) => {
+                      const val1 = curveData[idx]?.plannedProgress ?? 0;
+                      const val2 = curveData[idx + 1]?.plannedProgress ?? 0;
+                      return (
+                        <line
+                          key={`p-line-${idx}`}
+                          x1={getX(idx)}
+                          y1={getY(val1)}
+                          x2={getX(idx + 1)}
+                          y2={getY(val2)}
+                          stroke="#2563eb"
+                          strokeWidth="2.5"
+                        />
+                      );
+                    })}
+
+                    {/* Actual Progress Line Segments */}
+                    {showActual && periodHeaders.slice(0, -1).map((_, idx) => {
+                      const val1 = curveData[idx]?.actualProgress ?? 0;
+                      const val2 = curveData[idx + 1]?.actualProgress ?? 0;
+                      return (
+                        <line
+                          key={`a-line-${idx}`}
+                          x1={getX(idx)}
+                          y1={getY(val1)}
+                          x2={getX(idx + 1)}
+                          y2={getY(val2)}
+                          stroke="#10b981"
+                          strokeWidth="2.5"
+                        />
+                      );
+                    })}
+
+                    {/* Planned Dots and Labels */}
+                    {periodHeaders.map((_, idx) => {
+                      const val = curveData[idx]?.plannedProgress ?? 0;
+                      const x = getX(idx);
+                      const y = getY(val);
+                      return (
+                        <g key={`p-point-${idx}`}>
+                          <circle cx={x} cy={y} r="3" fill="#2563eb" stroke="#ffffff" strokeWidth="1" />
+                          <text
+                            x={x}
+                            y={y}
+                            dy="-6"
+                            textAnchor="middle"
+                            className="text-[8px] font-extrabold fill-blue-700"
+                            style={{
+                              paintOrder: 'stroke',
+                              stroke: '#ffffff',
+                              strokeWidth: '2.5px',
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round'
+                            }}
+                          >
+                            {val}%
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* Actual Dots and Labels */}
+                    {showActual && periodHeaders.map((_, idx) => {
+                      const val = curveData[idx]?.actualProgress ?? 0;
+                      const x = getX(idx);
+                      const y = getY(val);
+                      return (
+                        <g key={`a-point-${idx}`}>
+                          <circle cx={x} cy={y} r="3" fill="#10b981" stroke="#ffffff" strokeWidth="1" />
+                          <text
+                            x={x}
+                            y={y}
+                            dy="10"
+                            textAnchor="middle"
+                            className="text-[8px] font-extrabold fill-emerald-700"
+                            style={{
+                              paintOrder: 'stroke',
+                              stroke: '#ffffff',
+                              strokeWidth: '2.5px',
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round'
+                            }}
+                          >
+                            {val}%
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* 100% and 0% labels on the right edge of the grid */}
+                    <text 
+                      x="100.5%" 
+                      y={getY(100)} 
+                      dominantBaseline="middle" 
+                      className="text-[9px] font-extrabold fill-blue-700"
+                      style={{
+                        paintOrder: 'stroke',
+                        stroke: '#ffffff',
+                        strokeWidth: '2.5px',
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round'
+                      }}
+                    >
+                      100%
+                    </text>
+                    <text 
+                      x="100.5%" 
+                      y={getY(0)} 
+                      dominantBaseline="middle" 
+                      className="text-[9px] font-extrabold fill-slate-600"
+                      style={{
+                        paintOrder: 'stroke',
+                        stroke: '#ffffff',
+                        strokeWidth: '2.5px',
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round'
+                      }}
+                    >
+                      0%
+                    </text>
+                  </>
+                );
+              })()}
+            </svg>
+          )}
         </div>
-        
-        {showSCurve && (
-            <div className="mt-6 border-t border-slate-300 pt-4 break-inside-avoid">
-                <SCurveChart project={project} viewMode={printPeriodType} hideToolbar />
-            </div>
-        )}
+      </div>
 
         {/* Footer Image from Google Drive */}
         <div className="mt-auto pt-4 w-full flex justify-end">
