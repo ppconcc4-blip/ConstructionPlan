@@ -32,7 +32,7 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
   const [endPeriod, setEndPeriod] = useState(2);
   const [startDateISO, setStartDateISO] = useState('');
   const [endDateISO, setEndDateISO] = useState('');
-  const [durationDays, setDurationDays] = useState(14);
+  const [durationDays, setDurationDays] = useState<number | string>(14);
   const [budget, setBudget] = useState(0);
   const [assignee, setAssignee] = useState('');
   const [plannedProgress, setPlannedProgress] = useState(100);
@@ -89,7 +89,8 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
     let endObj = new Date(endDateISO);
 
     if (isNaN(endObj.getTime()) || endObj < startObj) {
-      endObj = new Date(startObj.getTime() + (durationDays - 1) * 24 * 60 * 60 * 1000);
+      const dur = typeof durationDays === 'number' ? durationDays : (parseInt(durationDays || '1', 10) || 1);
+      endObj = new Date(startObj.getTime() + (dur - 1) * 24 * 60 * 60 * 1000);
     }
 
     const targetEndISO = endObj.toISOString().split('T')[0];
@@ -131,6 +132,34 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
     );
     setStartPeriod(sP);
     setEndPeriod(eP);
+  };
+
+  const handleDurationChange = (newDurationDaysStr: string) => {
+    if (newDurationDaysStr === '') {
+      setDurationDays('');
+      return;
+    }
+    let newDurationDays = parseInt(newDurationDaysStr, 10);
+    if (isNaN(newDurationDays) || newDurationDays < 1) newDurationDays = 1;
+    setDurationDays(newDurationDaysStr); // Keep string while typing, but parse it for date
+
+    const baseProjStart = projectStartDate || new Date().toISOString().split('T')[0];
+    const startObj = new Date(startDateISO);
+    
+    if (!isNaN(startObj.getTime())) {
+      const endObj = new Date(startObj.getTime() + (newDurationDays - 1) * 24 * 60 * 60 * 1000);
+      const targetEndISO = endObj.toISOString().split('T')[0];
+      setEndDateISO(targetEndISO);
+
+      const { startPeriod: sP, endPeriod: eP } = convertDatesToPeriods(
+        baseProjStart,
+        startDateISO,
+        targetEndISO,
+        periodType
+      );
+      setStartPeriod(sP);
+      setEndPeriod(eP);
+    }
   };
 
   const handlePeriodSelectChange = (newSP: number, newEP: number) => {
@@ -237,12 +266,30 @@ export const SubTaskModal: React.FC<SubTaskModalProps> = ({
                 <Calendar className="w-3.5 h-3.5 text-amber-400" />
                 กำหนดช่วงเวลาการทำงาน (ระบุเป็นวันที่)
               </label>
-              {durationDays > 0 && (
-                <span className="text-[11px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">ระยะเวลา:</span>
+                <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 rounded-md px-2 py-1 focus-within:border-amber-500/50">
                   <Clock className="w-3 h-3 text-amber-400" />
-                  {durationDays} วัน
-                </span>
-              )}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={durationDays}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      handleDurationChange(val);
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value === '' || parseInt(e.target.value, 10) < 1) {
+                        handleDurationChange('1');
+                      } else {
+                        setDurationDays(parseInt(e.target.value, 10));
+                      }
+                    }}
+                    className="bg-transparent w-10 text-center text-amber-300 font-mono font-bold text-[11px] focus:outline-none"
+                  />
+                  <span className="text-[11px] text-amber-400 font-bold">วัน</span>
+                </div>
+              </div>
             </div>
 
             {/* Date Picker Inputs */}

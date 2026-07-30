@@ -444,6 +444,8 @@ export default function App() {
                 title: subTaskData.title || 'รายการย่อยใหม่',
                 startPeriod: subTaskData.startPeriod || 1,
                 endPeriod: subTaskData.endPeriod || 2,
+                startDate: subTaskData.startDate,
+                endDate: subTaskData.endDate,
                 weight: subTaskData.weight || 5,
                 plannedProgress: subTaskData.plannedProgress ?? 100,
                 actualProgress: subTaskData.actualProgress ?? 0,

@@ -35,6 +35,44 @@ import {
   ArrowDown
 } from 'lucide-react';
 
+const TableDurationInput: React.FC<{
+  durationDays: number;
+  onSave: (dur: number) => void;
+}> = ({ durationDays, onSave }) => {
+  const [val, setVal] = useState(String(durationDays));
+
+  useEffect(() => {
+    setVal(String(durationDays));
+  }, [durationDays]);
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={val}
+      onChange={(e) => {
+        const clean = e.target.value.replace(/[^0-9]/g, '');
+        setVal(clean);
+        if (clean !== '') {
+          const num = parseInt(clean, 10);
+          if (!isNaN(num) && num >= 1) {
+            onSave(num);
+          }
+        }
+      }}
+      onBlur={() => {
+        if (val === '' || parseInt(val, 10) < 1) {
+          setVal(String(durationDays));
+        } else {
+          setVal(String(parseInt(val, 10)));
+        }
+      }}
+      className="w-12 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-1 text-[11px] font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-none"
+      title="ใส่ระยะเวลาจำนวนวัน (คิดวันสิ้นสุดออโต้)"
+    />
+  );
+};
+
 interface ScheduleTableProps {
   project: Project;
   viewMode: ViewMode;
@@ -248,7 +286,9 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
       project.startDate,
       subTask.startPeriod,
       subTask.endPeriod,
-      project.periodType
+      project.periodType,
+      subTask.startDate,
+      subTask.endDate
     );
 
     const startObj = new Date(currentDates.startDateISO);
@@ -257,14 +297,19 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
     const newEndObj = new Date(startObj.getTime() + (durationDays - 1) * 24 * 60 * 60 * 1000);
     const newEndDateISO = newEndObj.toISOString().split('T')[0];
 
-    const { endPeriod } = convertDatesToPeriods(
+    const { startPeriod, endPeriod } = convertDatesToPeriods(
       project.startDate,
       currentDates.startDateISO,
       newEndDateISO,
       project.periodType
     );
 
-    onUpdateSubTask(catId, subTask.id, { startPeriod: subTask.startPeriod, endPeriod });
+    onUpdateSubTask(catId, subTask.id, { 
+      startPeriod, 
+      endPeriod,
+      startDate: currentDates.startDateISO,
+      endDate: newEndDateISO
+    });
   };
 
   
@@ -879,13 +924,9 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                             {/* SubTask Duration Input */}
                             <td className="py-2 px-1 text-center border-r border-slate-200 dark:border-slate-800/80">
                               <div className="flex items-center justify-center gap-1">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={subTaskDates.durationDays}
-                                  onChange={(e) => handleDurationChange(cat.id, subTask, Number(e.target.value))}
-                                  className="w-12 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-1 py-1 text-[11px] font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 shadow-none"
-                                  title="ใส่ระยะเวลาจำนวนวัน (คิดวันสิ้นสุดออโต้)"
+                                <TableDurationInput 
+                                  durationDays={subTaskDates.durationDays} 
+                                  onSave={(dur) => handleDurationChange(cat.id, subTask, dur)} 
                                 />
                                 <span className="text-[10px] text-slate-400 font-medium shrink-0">วัน</span>
                               </div>
