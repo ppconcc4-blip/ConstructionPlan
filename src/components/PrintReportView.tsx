@@ -391,7 +391,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                     <React.Fragment key={cat.id}>
                       {!isHiddenDefaultCategory && (
                       <tr className={`bg-slate-100 font-bold border-b border-slate-300 ${isLastTaskRowForCat ? 'last-task-row' : ''}`}>
-                        <td className="p-1 border border-slate-300 text-center">{cat.code}</td>
+                        <td className="p-1 border border-slate-300 text-center">{`${catIdx + 1}.0`}</td>
                         <td className="p-1 border border-slate-300 whitespace-nowrap">{cat.title}</td>
                         <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.startDateISO)}</td>
                         <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.endDateISO)}</td>
@@ -427,6 +427,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
                     {/* Subtask Rows */}
                     {cat.subTasks.map((st, stIdx) => {
+                          const computedSubCode = isHiddenDefaultCategory ? `${stIdx + 1}` : `${catIdx + 1}.${stIdx + 1}`;
                       const currentDates = getPeriodDates(project.startDate, st.startPeriod, st.endPeriod, project.periodType);
                       const startObj = new Date(st.startDate || currentDates.startDateISO);
                       const endObj = new Date(st.endDate || currentDates.endDateISO);
@@ -437,7 +438,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
                       return (
                         <tr key={st.id} className={`border-b border-slate-200 ${isLastTaskRowForSubTask ? 'last-task-row' : ''}`}>
-                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{st.code}</td>
+                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{computedSubCode}</td>
                           <td className="p-1 border border-slate-300 pl-3 whitespace-nowrap">{st.title}</td>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.startDate || currentDates.startDateISO)}</td>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.endDate || currentDates.endDateISO)}</td>

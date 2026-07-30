@@ -437,9 +437,10 @@ export default function App() {
               };
             } else {
               // Add new subtask
+              const isHiddenDefaultCategory = c.code === '1.0' && c.title === 'งานทั่วไป' && p.categories.length === 1;
               const newSubTask: SubTask = {
                 id: `sub-${Date.now()}`,
-                code: subTaskData.code || `${c.code.split('.')[0]}.${c.subTasks.length + 1}`,
+                code: subTaskData.code || (isHiddenDefaultCategory ? `${c.subTasks.length + 1}` : `${c.code.split('.')[0]}.${c.subTasks.length + 1}`),
                 title: subTaskData.title || 'รายการย่อยใหม่',
                 startPeriod: subTaskData.startPeriod || 1,
                 endPeriod: subTaskData.endPeriod || 2,
@@ -639,7 +640,9 @@ export default function App() {
 
   const nextMainCategoryCodeDefault = `${(activeProject?.categories.length || 0) + 1}.0`;
   const nextSubTaskCodeDefault = activeCategoryForSubTask 
-    ? `${activeCategoryForSubTask.code.split('.')[0]}.${activeCategoryForSubTask.subTasks.length + 1}`
+    ? (activeCategoryForSubTask.code === '1.0' && activeCategoryForSubTask.title === 'งานทั่วไป' && activeProject?.categories.length === 1
+        ? `${activeCategoryForSubTask.subTasks.length + 1}`
+        : `${activeCategoryForSubTask.code.split('.')[0]}.${activeCategoryForSubTask.subTasks.length + 1}`)
     : '1.1';
 
   return (
@@ -747,7 +750,11 @@ export default function App() {
         onClose={() => setIsSubTaskModalOpen(false)}
         onSave={handleSaveSubTask}
         editingSubTask={editingSubTask}
-        parentCategoryTitle={activeCategoryForSubTask?.title || 'หมวดหลัก'}
+        parentCategoryTitle={
+          activeCategoryForSubTask 
+            ? (activeCategoryForSubTask.code === '1.0' && activeCategoryForSubTask.title === 'งานทั่วไป' && activeProject?.categories.length === 1 ? 'โครงการ (ไม่มีหมวดหลัก)' : activeCategoryForSubTask.title)
+            : 'หมวดหลัก'
+        }
         totalPeriods={activeProject?.totalPeriods || 16}
         periodType={activeProject?.periodType || 'weekly'}
         projectStartDate={activeProject?.startDate || ''}

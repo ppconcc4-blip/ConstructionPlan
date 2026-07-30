@@ -602,11 +602,12 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                     <React.Fragment key={cat.id}>
                       
                       {/* MAIN CATEGORY ROW (หัวข้อหลัก) */}
+                      {!isHiddenDefaultCategory && (
                       <tr className={`group border-l-4 ${getCategoryColorBorder(cat.color)} bg-[#f4f2ea] dark:bg-slate-800/90 font-semibold text-slate-900 dark:text-white transition`}>
                         
                         {/* Category Code */}
                         <td className="sticky left-0 z-20 bg-[#f4f2ea] dark:bg-slate-800 py-3 px-3 text-center font-mono font-bold text-amber-500 dark:text-amber-400 border-r border-slate-200 dark:border-slate-800">
-                          {cat.code}
+                          {`${catIdx + 1}.0`}
                         </td>
 
                         {/* Category Title + Collapse Button + Add Subtask Button (+ เพิ่มรายการย่อย) */}
@@ -788,9 +789,12 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                         </td>
 
                       </tr>
+                      )}
 
                       {/* SUBTASK ROWS (รายการย่อย) */}
-                      {!isCollapsed && filteredSubTasks.map((subTask, stIdx) => {
+                      {!isCollapsed && filteredSubTasks.map((subTask, _stIdx) => {
+                        const originalIdx = cat.subTasks.findIndex(st => st.id === subTask.id);
+                        const computedSubCode = isHiddenDefaultCategory ? `${originalIdx + 1}` : `${catIdx + 1}.${originalIdx + 1}`;
                         const status = calculateTaskStatus(subTask);
                         const subTaskDates = getPeriodDates(
                           project.startDate, 
@@ -808,7 +812,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                           >
                             {/* SubTask Code */}
                             <td className="sticky left-0 z-20 bg-[#fcfbf7] dark:bg-slate-900 group-hover:bg-[#f3f0e6] dark:group-hover:bg-slate-800 py-2.5 px-3 text-center font-mono text-[11px] text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800/80">
-                              {subTask.code}
+                              {computedSubCode}
                             </td>
 
                             {/* SubTask Title & Assignee */}
@@ -1006,7 +1010,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                       })}
 
                       {/* Add Subtask Row button under each category when expanded */}
-                      {!isCollapsed && (
+                      {!isCollapsed && !isHiddenDefaultCategory && (
                         <tr className="bg-slate-100/50 dark:bg-slate-800/30">
                           <td colSpan={6 + (showBudget ? 1 : 0) + (showPlanned ? 1 : 0) + (showActual ? 1 : 0) + periodHeaders.length} className="py-2 px-6">
                             <button
