@@ -1,4 +1,4 @@
-export type ViewMode = 'weekly' | 'monthly' | 'scurve';
+export type ViewMode = 'weekly' | 'monthly' | 'single_month' | 'scurve';
 
 export type TaskStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed';
 
@@ -24,6 +24,8 @@ export interface MainCategory {
   code: string; // e.g. "1.0", "2.0"
   title: string;
   color?: string; // Theme color tag
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string;   // YYYY-MM-DD
   subTasks: SubTask[];
 }
 
@@ -55,4 +57,5 @@ export interface PeriodHeader {
   subLabel?: string;   // e.g. "01-07 ก.ค."
   startDateISO?: string; // YYYY-MM-DD
   endDateISO?: string;   // YYYY-MM-DD
+  isOutOfMonth?: boolean;
 }

@@ -30,16 +30,22 @@ export const MainCategoryModal: React.FC<MainCategoryModalProps> = ({
   const [code, setCode] = useState(nextCodeDefault);
   const [title, setTitle] = useState('');
   const [color, setColor] = useState('blue');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     if (editingCategory) {
       setCode(editingCategory.code || '');
       setTitle(editingCategory.title || '');
       setColor(editingCategory.color || 'blue');
+      setStartDate(editingCategory.startDate || '');
+      setEndDate(editingCategory.endDate || '');
     } else {
       setCode(nextCodeDefault);
       setTitle('');
       setColor('blue');
+      setStartDate('');
+      setEndDate('');
     }
   }, [editingCategory, nextCodeDefault, isOpen]);
 
@@ -53,6 +59,8 @@ export const MainCategoryModal: React.FC<MainCategoryModalProps> = ({
       code: code.trim() || '1.0',
       title: title.trim(),
       color,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
     });
     onClose();
   };
@@ -90,22 +98,9 @@ export const MainCategoryModal: React.FC<MainCategoryModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           
           <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1 space-y-1">
-              <label className="block text-xs font-medium text-slate-300">
-                รหัสหัวข้อ
-              </label>
-              <input
-                id="main-category-code-input"
-                type="text"
-                required
-                placeholder="1.0"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono text-amber-300 focus:outline-none focus:border-amber-500"
-              />
-            </div>
+            
 
-            <div className="col-span-2 space-y-1">
+            <div className="col-span-3 space-y-1">
               <label className="block text-xs font-medium text-slate-300">
                 ชื่อหัวข้อหลัก <span className="text-rose-400">*</span>
               </label>
@@ -116,6 +111,33 @@ export const MainCategoryModal: React.FC<MainCategoryModalProps> = ({
                 placeholder="เช่น งานโครงสร้างอาคาร ค.ส.ล."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+              />
+            </div>
+          </div>
+
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-300">
+                วันที่เริ่มงาน (ตัวเลือก)
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-slate-300">
+                วันที่สิ้นสุด (ตัวเลือก)
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
               />
             </div>

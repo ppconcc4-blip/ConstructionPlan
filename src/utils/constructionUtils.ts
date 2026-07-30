@@ -16,6 +16,90 @@ export function formatTHB(amount: number): string {
 /**
  * Generate Period Headers (Weeks or Months)
  */
+
+export function generateDailyHeadersForMonth(
+  startDateStr: string,
+  monthIndex: number // 1-indexed relative to start date
+): PeriodHeader[] {
+  const headers: PeriodHeader[] = [];
+  const start = new Date(startDateStr || new Date().toISOString().split('T')[0]);
+  
+  // Calculate the target month
+  const targetMonth = new Date(start.getFullYear(), start.getMonth() + (monthIndex - 1), 1);
+  const firstDayOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+  const lastDayOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+  
+  // Thai calendars usually consider Monday as first day of week for business?
+  // Let's use Monday as start of week. getDay() -> 0: Sun, 1: Mon, ..., 6: Sat
+  let firstDayOfWeek = firstDayOfMonth.getDay();
+  // Convert to Mon = 0, Sun = 6
+  let offset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+  
+  const thaiMonthsShort = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+
+  const formatISO = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  let currentIndex = 1;
+  
+  // Add previous month padding
+  if (offset > 0) {
+    const prevMonthLastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 0);
+    for (let i = offset - 1; i >= 0; i--) {
+      const d = new Date(prevMonthLastDay.getFullYear(), prevMonthLastDay.getMonth(), prevMonthLastDay.getDate() - i);
+      headers.push({
+        periodIndex: currentIndex++,
+        label: `${d.getDate()} ${thaiMonthsShort[d.getMonth()]}`,
+        subLabel: `${d.getDate()}`,
+        startDateISO: formatISO(d),
+        endDateISO: formatISO(d),
+        isOutOfMonth: true,
+      });
+    }
+  }
+
+  // Add current month days
+  const monthName = thaiMonthsShort[targetMonth.getMonth()];
+  for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+    const d = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), i);
+    headers.push({
+      periodIndex: currentIndex++,
+      label: `${i} ${monthName}`,
+      subLabel: `${i}`,
+      startDateISO: formatISO(d),
+      endDateISO: formatISO(d),
+      isOutOfMonth: false,
+    });
+  }
+  
+  // Add next month padding to complete the last week
+  let lastDayOfWeek = lastDayOfMonth.getDay();
+  let endOffset = lastDayOfWeek === 0 ? 6 : lastDayOfWeek - 1;
+  if (endOffset < 6) {
+    let paddingDays = 6 - endOffset;
+    for (let i = 1; i <= paddingDays; i++) {
+      const d = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, i);
+      headers.push({
+        periodIndex: currentIndex++,
+        label: `${d.getDate()} ${thaiMonthsShort[d.getMonth()]}`,
+        subLabel: `${d.getDate()}`,
+        startDateISO: formatISO(d),
+        endDateISO: formatISO(d),
+        isOutOfMonth: true,
+      });
+    }
+  }
+
+  return headers;
+}
+
 export function generatePeriodHeaders(
   startDateStr: string,
   totalPeriods: number,
@@ -589,3 +673,56 @@ export function getMonthGroupsForWeekly(periodHeaders: PeriodHeader[]): MonthGro
   return groups;
 }
 
+
+
+export function getProjectMonthName(startDateStr: string, monthIndex: number): string {
+  const start = new Date(startDateStr || new Date().toISOString().split('T')[0]);
+  const targetMonth = new Date(start.getFullYear(), start.getMonth() + (monthIndex - 1), 1);
+  const thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+  const thaiYear = targetMonth.getFullYear() + 543;
+  return `${thaiMonths[targetMonth.getMonth()]} ${thaiYear}`;
+}
+
+
+export function getWeekGroupsForDaily(headers: PeriodHeader[]): { label: string; colSpan: number }[] {
+  const groups: { label: string; colSpan: number }[] = [];
+  
+  // Since headers are now perfectly padded to weeks (Monday to Sunday), 
+  // we can simply group every 7 headers.
+  for (let i = 0; i < headers.length; i += 7) {
+    const chunk = headers.slice(i, i + 7);
+    const startDate = new Date(chunk[0].startDateISO!);
+    const endDate = new Date(chunk[chunk.length - 1].endDateISO!);
+    const thaiMonthsShort = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+    ];
+    const startM = thaiMonthsShort[startDate.getMonth()];
+    const endM = thaiMonthsShort[endDate.getMonth()];
+    
+    let label = '';
+    if (startM === endM) {
+      label = `${startDate.getDate()}-${endDate.getDate()} ${startM}`;
+    } else {
+      label = `${startDate.getDate()} ${startM} - ${endDate.getDate()} ${endM}`;
+    }
+    
+    groups.push({ label, colSpan: chunk.length });
+  }
+
+  return groups;
+}
+
+export function formatThaiDate(dateString: string) {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  const months = ['มค.', 'กพ.', 'มีค.', 'เมย.', 'พค.', 'มิย.', 'กค.', 'สค.', 'กย.', 'ตค.', 'พย.', 'ธค.'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = (date.getFullYear() + 543).toString().substring(2);
+  return `${day} ${month} ${year}`;
+}

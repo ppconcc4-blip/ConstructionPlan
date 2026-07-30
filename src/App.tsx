@@ -229,6 +229,41 @@ export default function App() {
     });
   };
 
+
+  const handleMoveMainCategory = (categoryId: string, direction: 'up' | 'down') => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== activeProjectId) return p;
+        
+        const catIndex = p.categories.findIndex((c) => c.id === categoryId);
+        if (catIndex === -1) return p;
+        
+        if (direction === 'up' && catIndex === 0) return p;
+        if (direction === 'down' && catIndex === p.categories.length - 1) return p;
+        
+        const newCategories = [...p.categories];
+        const swapIndex = direction === 'up' ? catIndex - 1 : catIndex + 1;
+        
+        [newCategories[catIndex], newCategories[swapIndex]] = [newCategories[swapIndex], newCategories[catIndex]];
+        
+        // Re-number
+        newCategories.forEach((c, idx) => {
+          c.code = `${idx + 1}.0`;
+          const isHiddenDefaultCategory = c.code === '1.0' && c.title === 'งานทั่วไป' && p.categories.length === 1;
+          c.subTasks.forEach((st, stIdx) => {
+            st.code = isHiddenDefaultCategory ? `${stIdx + 1}` : `${idx + 1}.${stIdx + 1}`;
+          });
+        });
+        
+        return {
+          ...p,
+          categories: newCategories,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
   // Main Category Handlers (+ เพิ่มหัวข้อหลัก)
   const handleOpenAddMainCategory = () => {
     setEditingCategory(null);
@@ -294,7 +329,80 @@ export default function App() {
     );
   };
 
+
+  const handleMoveSubTask = (categoryId: string, subTaskId: string, direction: 'up' | 'down') => {
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.id !== activeProjectId) return p;
+        
+        const catIndex = p.categories.findIndex((c) => c.id === categoryId);
+        if (catIndex === -1) return p;
+        
+        const c = p.categories[catIndex];
+        const stIndex = c.subTasks.findIndex((st) => st.id === subTaskId);
+        if (stIndex === -1) return p;
+        
+        if (direction === 'up' && stIndex === 0) return p;
+        if (direction === 'down' && stIndex === c.subTasks.length - 1) return p;
+        
+        const newSubTasks = [...c.subTasks];
+        const swapIndex = direction === 'up' ? stIndex - 1 : stIndex + 1;
+        
+        [newSubTasks[stIndex], newSubTasks[swapIndex]] = [newSubTasks[swapIndex], newSubTasks[stIndex]];
+        
+        const isHiddenDefaultCategory = c.code === '1.0' && c.title === 'งานทั่วไป' && p.categories.length === 1;
+        newSubTasks.forEach((st, idx) => {
+          st.code = isHiddenDefaultCategory ? `${idx + 1}` : `${c.code.split('.')[0]}.${idx + 1}`;
+        });
+        
+        const newCategories = [...p.categories];
+        newCategories[catIndex] = { ...c, subTasks: newSubTasks };
+        
+        return {
+          ...p,
+          categories: newCategories,
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+  };
+
   // SubTask Handlers (+ เพิ่มรายการย่อย)
+
+  const handleOpenAddDirectSubTask = () => {
+    if (!activeProject) return;
+    
+    if (activeProject.categories.length === 0) {
+      const newCatId = Date.now().toString();
+      const newCategory: MainCategory = {
+        id: newCatId,
+        code: '1.0',
+        title: 'งานทั่วไป',
+        color: 'blue',
+        subTasks: []
+      };
+      
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== activeProjectId) return p;
+          return {
+            ...p,
+            categories: [...p.categories, newCategory],
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+      
+      setTargetCategoryIdForSubTask(newCatId);
+      setEditingSubTask(null);
+      setIsSubTaskModalOpen(true);
+    } else {
+      setTargetCategoryIdForSubTask(activeProject.categories[0].id);
+      setEditingSubTask(null);
+      setIsSubTaskModalOpen(true);
+    }
+  };
+
   const handleOpenAddSubTask = (categoryId: string) => {
     setTargetCategoryIdForSubTask(categoryId);
     setEditingSubTask(null);
@@ -590,9 +698,12 @@ export default function App() {
                 onEditMainCategory={handleOpenEditMainCategory}
                 onDeleteMainCategory={handleDeleteMainCategory}
                 onAddSubTask={handleOpenAddSubTask}
+                onAddDirectSubTask={handleOpenAddDirectSubTask}
                 onEditSubTask={handleOpenEditSubTask}
                 onDeleteSubTask={handleDeleteSubTask}
                 onQuickUpdateProgress={handleQuickUpdateProgress}
+                onMoveMainCategory={handleMoveMainCategory}
+                onMoveSubTask={handleMoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 onUpdateMainCategory={handleUpdateMainCategory}
               />
@@ -609,7 +720,7 @@ export default function App() {
             <strong>ระบบวางแผนงานก่อสร้าง (Construction Schedule Planner)</strong> — ออกแบบสำหรับวิศวกร ผู้รับเหมา และเจ้าของโครงการ
           </div>
           <div className="text-[11px] text-slate-600">
-            สลับมุมมอง รายสัปดาห์ / รายเดือน / กราฟ S-Curve • พิมพ์รายงาน A4
+            สลับมุมมอง รายสัปดาห์ / ทั้งโครงการ / กราฟ S-Curve • พิมพ์รายงาน A4
           </div>
         </div>
       </footer>

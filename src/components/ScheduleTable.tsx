@@ -3,14 +3,14 @@ import { Project, MainCategory, SubTask, ViewMode } from '../types';
 import { ViewModeSelector } from './ViewModeSelector';
 import { ConfirmModal } from './ConfirmModal';
 import { 
-  generatePeriodHeaders, 
+  formatThaiDate, generatePeriodHeaders, generateDailyHeadersForMonth, 
   getCategoryMetrics, 
   calculateTaskStatus, 
   formatTHB,
   getPeriodDates,
   convertDatesToPeriods,
   calculateGanttBarPosition,
-  getMonthGroupsForWeekly
+  getMonthGroupsForWeekly, getProjectMonthName, getWeekGroupsForDaily
 } from '../utils/constructionUtils';
 import { 
   Plus, 
@@ -30,7 +30,9 @@ import {
   Sparkles,
   Check,
   X,
-  Calendar
+  Calendar,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 interface ScheduleTableProps {
@@ -41,6 +43,9 @@ interface ScheduleTableProps {
   onEditMainCategory: (category: MainCategory) => void;
   onDeleteMainCategory: (categoryId: string) => void;
   onAddSubTask: (categoryId: string) => void;
+  onAddDirectSubTask?: () => void;
+  onMoveMainCategory?: (categoryId: string, direction: 'up' | 'down') => void;
+  onMoveSubTask?: (categoryId: string, subTaskId: string, direction: 'up' | 'down') => void;
   onEditSubTask: (categoryId: string, subTask: SubTask) => void;
   onDeleteSubTask: (categoryId: string, subTaskId: string) => void;
   onQuickUpdateProgress: (categoryId: string, subTaskId: string, newProgress: number) => void;
@@ -58,6 +63,9 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
   onEditMainCategory,
   onDeleteMainCategory,
   onAddSubTask,
+  onAddDirectSubTask,
+  onMoveMainCategory,
+  onMoveSubTask,
   onEditSubTask,
   onDeleteSubTask,
   onQuickUpdateProgress,
@@ -72,6 +80,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
   const [showBudget, setShowBudget] = useState(true);
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(1);
 
   // Inline category title editing state
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -258,7 +267,11 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
     onUpdateSubTask(catId, subTask.id, { startPeriod: subTask.startPeriod, endPeriod });
   };
 
-  const periodHeaders = generatePeriodHeaders(project.startDate, project.totalPeriods, viewMode);
+  
+  const periodHeaders = viewMode === 'single_month'
+    ? generateDailyHeadersForMonth(project.startDate, selectedMonthIndex)
+    : generatePeriodHeaders(project.startDate, project.totalPeriods, viewMode as any);
+
 
   const projYearBE = (() => {
     const d = new Date(project.startDate || new Date().toISOString().split('T')[0]);
@@ -325,11 +338,28 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
         
         {/* View Mode Selector */}
         <div className="flex-1">
-          <ViewModeSelector 
-            viewMode={viewMode}
-            onChangeViewMode={onChangeViewMode}
-            activeProject={project}
-          />
+          <div className="flex items-center">
+            <ViewModeSelector 
+              viewMode={viewMode}
+              onChangeViewMode={onChangeViewMode}
+              activeProject={project}
+            />
+
+        {viewMode === 'single_month' && (
+          <div className="flex items-center ml-4 gap-2">
+            <span className="text-xs text-slate-400 font-medium">เลือกเดือน:</span>
+            <select
+              value={selectedMonthIndex}
+              onChange={(e) => setSelectedMonthIndex(Number(e.target.value))}
+              className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:ring-1 focus:ring-amber-500"
+            >
+              {Array.from({ length: project.periodType === 'weekly' ? Math.ceil(project.totalPeriods / 4) : project.totalPeriods }).map((_, idx) => (
+                <option key={idx} value={idx + 1}>{getProjectMonthName(project.startDate, idx + 1)}</option>
+              ))}
+            </select>
+          </div>
+        )}
+          </div>
         </div>
 
         {/* Filter & Action Buttons */}
@@ -441,8 +471,9 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 )}
 
                 {/* Period Dynamic Timeline Headers (Weeks or Months) */}
-                {viewMode === 'weekly' ? (
-                  getMonthGroupsForWeekly(periodHeaders).map((group, idx) => (
+
+                {viewMode === 'weekly' || viewMode === 'single_month' ? (
+                  (viewMode === 'weekly' ? getMonthGroupsForWeekly(periodHeaders) : getWeekGroupsForDaily(periodHeaders)).map((group, idx) => (
                     <th
                       key={idx}
                       colSpan={group.colSpan}
@@ -452,6 +483,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                     </th>
                   ))
                 ) : (
+
                   periodHeaders.map((header) => (
                     <th
                       key={header.periodIndex}
@@ -515,35 +547,48 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         เริ่มสร้างแผนงานโดยการคลิกปุ่ม "+ เพิ่มหัวข้อหลัก" เพื่อเพิ่มหมวดงานแรกของคุณ
                       </p>
-                      <button
-                        id="empty-state-add-category-btn"
-                        onClick={onAddMainCategory}
-                        className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow"
-                      >
-                        <FolderPlus className="w-4 h-4" />
-                        <span>+ เพิ่มหัวข้อหลักแรก</span>
-                      </button>
+                      
+                      <div className="flex items-center gap-3 justify-center mt-2">
+                        <button
+                          id="empty-state-add-category-btn"
+                          onClick={onAddMainCategory}
+                          className="inline-flex items-center gap-2 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition shadow"
+                        >
+                          <FolderPlus className="w-4 h-4" />
+                          <span>+ เพิ่มหัวข้อหลัก</span>
+                        </button>
+                        <button
+                          onClick={onAddDirectSubTask}
+                          className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow"
+                        >
+                          <span>+ เพิ่มรายการย่อย (เริ่มทันที)</span>
+                        </button>
+                      </div>
+
                     </div>
                   </td>
                 </tr>
               ) : (
-                project.categories.map((cat) => {
+                project.categories.map((cat, catIdx) => {
                   const catMetrics = getCategoryMetrics(cat);
                   const isCollapsed = collapsedCategories[cat.id];
+                  const isHiddenDefaultCategory = cat.code === '1.0' && cat.title === 'งานทั่วไป' && project.categories.length === 1;
 
                   // Calculate start/end dates and duration for category
-                  const minStartPeriod = cat.subTasks.length > 0 
-                    ? Math.min(...cat.subTasks.map((st) => st.startPeriod)) 
-                    : 1;
-                  const maxEndPeriod = cat.subTasks.length > 0 
-                    ? Math.max(...cat.subTasks.map((st) => st.endPeriod)) 
-                    : project.totalPeriods;
-                  const catDates = getPeriodDates(
-                    project.startDate, 
-                    minStartPeriod, 
-                    maxEndPeriod, 
-                    project.periodType
-                  );
+                  let catDatesDisplay = { startDateISO: '', endDateISO: '', durationText: '-' };
+                  if (cat.startDate || cat.endDate) {
+                    catDatesDisplay = {
+                      startDateISO: cat.startDate || '',
+                      endDateISO: cat.endDate || '',
+                      durationText: (cat.startDate && cat.endDate) ? `${Math.ceil((new Date(cat.endDate).getTime() - new Date(cat.startDate).getTime()) / (1000 * 3600 * 24)) + 1} วัน` : '-'
+                    };
+                  } else if (cat.subTasks.length > 0) {
+                    const minSP = Math.min(...cat.subTasks.map((st) => st.startPeriod));
+                    const maxEP = Math.max(...cat.subTasks.map((st) => st.endPeriod));
+                    catDatesDisplay = getPeriodDates(project.startDate, minSP, maxEP, project.periodType);
+                  } else {
+                    catDatesDisplay = { startDateISO: '', endDateISO: '', durationText: '-' };
+                  }
 
                   // Filter subtasks
                   const filteredSubTasks = cat.subTasks.filter((task) => {
@@ -641,17 +686,17 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
 
                         {/* Category Start Date */}
                         <td className="py-3 px-2 text-center font-mono text-[11px] text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800">
-                          {catDates.startDate}
+                          {formatThaiDate(catDatesDisplay.startDateISO)}
                         </td>
 
                         {/* Category End Date */}
                         <td className="py-3 px-2 text-center font-mono text-[11px] text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800">
-                          {catDates.endDate}
+                          {formatThaiDate(catDatesDisplay.endDateISO)}
                         </td>
 
                         {/* Category Duration */}
                         <td className="py-3 px-2 text-center text-[11px] font-medium text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800">
-                          {catDates.durationText}
+                          {catDatesDisplay.durationText}
                         </td>
 
                         {/* Category Total Budget */}
@@ -710,7 +755,27 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
 
                         {/* Category Edit Action */}
                         <td className="py-3 px-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {onMoveMainCategory && (
+                              <>
+                                <button
+                                  onClick={() => onMoveMainCategory(cat.id, 'up')}
+                                  disabled={catIdx === 0}
+                                  className={`p-1 rounded transition ${catIdx === 0 ? 'text-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                  title="เลื่อนขึ้น"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => onMoveMainCategory(cat.id, 'down')}
+                                  disabled={catIdx === project.categories.length - 1}
+                                  className={`p-1 rounded transition ${catIdx === project.categories.length - 1 ? 'text-slate-600' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                  title="เลื่อนลง"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                             <button
                               id={`edit-category-${cat.id}`}
                               onClick={() => onEditMainCategory(cat)}
@@ -725,7 +790,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                       </tr>
 
                       {/* SUBTASK ROWS (รายการย่อย) */}
-                      {!isCollapsed && filteredSubTasks.map((subTask) => {
+                      {!isCollapsed && filteredSubTasks.map((subTask, stIdx) => {
                         const status = calculateTaskStatus(subTask);
                         const subTaskDates = getPeriodDates(
                           project.startDate, 
@@ -976,14 +1041,26 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
             รายการ
           </div>
 
-          <button
-            id="add-main-category-bottom-btn"
-            onClick={onAddMainCategory}
-            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md shadow-amber-500/20 active:scale-95"
-          >
-            <FolderPlus className="w-4 h-4 stroke-[2.5]" />
-            <span>+ เพิ่มหัวข้อหลักใหม่</span>
-          </button>
+          
+          <div className="flex gap-2">
+            <button
+              id="add-main-category-bottom-btn"
+              onClick={onAddMainCategory}
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md shadow-amber-500/20 active:scale-95"
+            >
+              <FolderPlus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ เพิ่มหัวข้อหลักใหม่</span>
+            </button>
+            {project.categories.length > 0 && onAddDirectSubTask && (
+              <button
+                onClick={onAddDirectSubTask}
+                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-500 font-bold text-xs px-4 py-2 rounded-xl transition shadow-md active:scale-95"
+              >
+                <span>+ เพิ่มรายการย่อย</span>
+              </button>
+            )}
+          </div>
+
         </div>
 
       </div>

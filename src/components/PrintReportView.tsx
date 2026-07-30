@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Project } from '../types';
 import { 
   getProjectSummary, 
-  generatePeriodHeaders, 
+  formatThaiDate, generatePeriodHeaders, generateDailyHeadersForMonth, 
   getCategoryMetrics, 
   formatTHB,
   getPeriodDates,
@@ -10,7 +10,7 @@ import {
   calculateDaysVarianceForPeriod,
   calculateGanttBarPosition,
   calculateTaskStatus,
-  getMonthGroupsForWeekly
+  getMonthGroupsForWeekly, getProjectMonthName, getWeekGroupsForDaily
 } from '../utils/constructionUtils';
 import { SCurveChart } from './SCurveChart';
 
@@ -23,12 +23,13 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   project,
   onClosePrint,
 }) => {
-  const [pageSize, setPageSize] = useState<'A4' | 'A3'>('A4');
-  const [printPeriodType, setPrintPeriodType] = useState<'weekly' | 'monthly'>(project.periodType || 'weekly');
+  
+  const [printPeriodType, setPrintPeriodType] = useState<'weekly' | 'monthly' | 'single_month'>(project.periodType || 'weekly');
   
   const [showBudget, setShowBudget] = useState(true);
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
+  const [printSelectedMonthIndex, setPrintSelectedMonthIndex] = useState<number>(1);
   const [showSCurve, setShowSCurve] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -77,23 +78,16 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   }, [showSCurve, showBudget, showPlanned, showActual, printPeriodType]);
   
   const summary = getProjectSummary(project);
-  const periodHeaders = generatePeriodHeaders(project.startDate, project.totalPeriods, printPeriodType);
-  const curveData = calculateSCurveData(project, printPeriodType);
+  
+  const periodHeaders = printPeriodType === 'single_month'
+    ? generateDailyHeadersForMonth(project.startDate, printSelectedMonthIndex)
+    : generatePeriodHeaders(project.startDate, project.totalPeriods, printPeriodType as any);
+
+  const curveData = calculateSCurveData(project, printPeriodType === "single_month" ? "monthly" : printPeriodType);
   const colSpanBeforePeriods = 5 + (showBudget ? 1 : 0) + (showPlanned ? 1 : 0) + (showActual ? 1 : 0);
 
   const headerImageUrl = "https://lh3.googleusercontent.com/d/1JDcmdmipc6mfv9cXLIYIyUozIo-M7RIY=s1200";
   const footerImageUrl = "https://lh3.googleusercontent.com/d/1DMp-DsbtKczK8HLrBbQkGdBQ4hN5E2ge=s1200";
-
-  const formatThaiDate = (dateString: string) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
-    const months = ['มค.', 'กพ.', 'มีค.', 'เมย.', 'พค.', 'มิย.', 'กค.', 'สค.', 'กย.', 'ตค.', 'พย.', 'ธค.'];
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = (date.getFullYear() + 543).toString().slice(-2);
-    return `${day} ${month} ${year}`;
-  };
 
   const formatFullThaiDate = (dateString: string) => {
     if (!dateString) return '-';
@@ -110,7 +104,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
     <div className="bg-slate-950 min-h-screen text-slate-900 p-4 sm:p-8 overflow-auto">
       
       {/* Top Action Controls (hidden when printing) */}
-      <div className="print:hidden max-w-[297mm] mx-auto mb-6 bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 text-white" style={pageSize === 'A3' ? { maxWidth: '420mm' } : {}}>
+      <div className="print:hidden max-w-[297mm] mx-auto mb-6 bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 text-white" style={{ maxWidth: '420mm' }}>
 
         <div>
           <h3 className="font-bold text-sm">หน้าพรีวิวสำหรับพิมพ์รายงาน (Landscape Print Preview)</h3>
@@ -161,46 +155,44 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             </label>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
-            <span className="text-slate-400">รูปแบบเวลา:</span>
+                              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700/80">
             <button
               onClick={() => setPrintPeriodType('weekly')}
-              className={`px-2.5 py-1 rounded-md font-bold transition ${
-                printPeriodType === 'weekly' ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                printPeriodType === 'weekly' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               รายสัปดาห์
             </button>
             <button
               onClick={() => setPrintPeriodType('monthly')}
-              className={`px-2.5 py-1 rounded-md font-bold transition ${
-                printPeriodType === 'monthly' ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:text-white'
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                printPeriodType === 'monthly' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              รายเดือน
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
-            <span className="text-slate-400">ขนาดกระดาษ:</span>
-            <button
-              onClick={() => setPageSize('A4')}
-              className={`px-2.5 py-1 rounded-md font-bold transition ${
-                pageSize === 'A4' ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              A4 Landscape
+              ตารางทั้งโครงการ
             </button>
             <button
-              onClick={() => setPageSize('A3')}
-              className={`px-2.5 py-1 rounded-md font-bold transition ${
-                pageSize === 'A3' ? 'bg-amber-500 text-slate-950' : 'text-slate-300 hover:text-white'
+              onClick={() => setPrintPeriodType('single_month')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                printPeriodType === 'single_month' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              A3 Landscape
+              รายวัน (ทีละเดือน)
             </button>
+            
+            {printPeriodType === 'single_month' && (
+              <select
+                value={printSelectedMonthIndex}
+                onChange={(e) => setPrintSelectedMonthIndex(Number(e.target.value))}
+                className="bg-slate-700 border-none text-white text-[11px] rounded px-2 py-1 ml-1 cursor-pointer focus:ring-1 focus:ring-indigo-500"
+              >
+                {Array.from({ length: project.periodType === 'weekly' ? Math.ceil(project.totalPeriods / 4) : project.totalPeriods }).map((_, idx) => (
+                  <option key={idx} value={idx + 1}>{getProjectMonthName(project.startDate, idx + 1)}</option>
+                ))}
+              </select>
+            )}
           </div>
-
           <button
             onClick={() => window.print()}
             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg transition shadow flex items-center gap-1.5"
@@ -219,7 +211,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       <style>{`
         @media print {
           @page {
-            size: ${pageSize === 'A3' ? 'A3 landscape' : 'A4 landscape'};
+            size: A3 landscape;
             margin: 20mm !important;
           }
           body, html, #root, .bg-slate-950, .print-sheet, .overflow-x-auto, table, div {
@@ -271,8 +263,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         }
         @media screen {
           .print-sheet {
-            width: ${pageSize === 'A3' ? '420mm' : '297mm'};
-            min-height: ${pageSize === 'A3' ? '297mm' : '210mm'};
+            width: 420mm;
+            min-height: 297mm;
             padding: 20mm;
           }
         }
@@ -304,6 +296,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           <div className="space-y-1 w-1/3 text-center">
             <div className="font-bold text-sm">แผนงานการปฏิบัติงาน</div>
             <div className="font-bold text-base">{project.name}</div>
+            {printPeriodType === 'single_month' && (
+              <div className="font-bold text-sm text-slate-700 mt-1">ประจำเดือน {getProjectMonthName(project.startDate, printSelectedMonthIndex)}</div>
+            )}
           </div>
           <div className="w-1/3 flex justify-end">
             <table className="text-left leading-tight">
@@ -331,22 +326,24 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-200 text-slate-800 font-bold border-b border-slate-300 text-center">
-                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-8 align-middle">ลำดับงาน</th>
-                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 align-middle text-left">รายการงาน / หมวดงาน</th>
-                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันเริ่ม</th>
-                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันสิ้นสุด</th>
-                  <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-12 align-middle">ระยะเวลา</th>
-                  {showBudget && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-20 text-right align-middle">งบประมาณ</th>}
-                  {showPlanned && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
-                  {showActual && <th rowSpan={printPeriodType === 'weekly' ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-emerald-700">จริง %</th>}
+                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-8 align-middle">ลำดับงาน</th>
+                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 align-middle text-left whitespace-nowrap">รายการงาน / หมวดงาน</th>
+                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันเริ่ม</th>
+                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันสิ้นสุด</th>
+                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-12 align-middle">ระยะเวลา</th>
+                  {showBudget && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-20 text-right align-middle">งบประมาณ</th>}
+                  {showPlanned && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
+                  {showActual && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-emerald-700">จริง %</th>}
                   
-                  {printPeriodType === 'weekly' ? (
-                    getMonthGroupsForWeekly(periodHeaders).map((group, idx) => (
+
+                  {printPeriodType === 'weekly' || printPeriodType === 'single_month' ? (
+                    (printPeriodType === 'weekly' ? getMonthGroupsForWeekly(periodHeaders) : getWeekGroupsForDaily(periodHeaders)).map((group, idx) => (
                       <th key={idx} colSpan={group.colSpan} className="p-0.5 border border-slate-300 text-center font-bold text-amber-800 bg-amber-50/20 text-[8px] align-middle">
                         {group.label}
                       </th>
                     ))
                   ) : (
+
                     periodHeaders.map((h) => (
                       <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[8px] min-w-[28px] align-middle">
                         {h.label}
@@ -354,37 +351,51 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                     ))
                   )}
                 </tr>
-                {printPeriodType === 'weekly' && (
+
+                {(printPeriodType === 'weekly' || printPeriodType === 'single_month') && (
                   <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 text-center">
                     {periodHeaders.map((h) => (
-                      <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px]">
-                        {h.label}
+                      <th key={h.periodIndex} className={`p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px] ${h.isOutOfMonth ? "text-slate-400 font-normal" : ""}`}>
+                        {printPeriodType === 'single_month' ? h.subLabel : h.label}
                       </th>
                     ))}
                   </tr>
                 )}
+
               </thead>
               <tbody>
                 {project.categories.map((cat, catIdx) => {
                   const catM = getCategoryMetrics(cat);
-                  const minStartPeriod = cat.subTasks.length > 0 ? Math.min(...cat.subTasks.map((st) => st.startPeriod)) : 1;
-                  const maxEndPeriod = cat.subTasks.length > 0 ? Math.max(...cat.subTasks.map((st) => st.endPeriod)) : project.totalPeriods;
-                  const catDates = getPeriodDates(project.startDate, minStartPeriod, maxEndPeriod, project.periodType);
+                  let catDatesDisplay = { startDateISO: '', endDateISO: '', durationText: '-' };
+                  if (cat.startDate || cat.endDate) {
+                    catDatesDisplay = {
+                      startDateISO: cat.startDate || '',
+                      endDateISO: cat.endDate || '',
+                      durationText: (cat.startDate && cat.endDate) ? `${Math.ceil((new Date(cat.endDate).getTime() - new Date(cat.startDate).getTime()) / (1000 * 3600 * 24)) + 1} วัน` : '-'
+                    };
+                  } else if (cat.subTasks.length > 0) {
+                    const minSP = Math.min(...cat.subTasks.map((st) => st.startPeriod));
+                    const maxEP = Math.max(...cat.subTasks.map((st) => st.endPeriod));
+                    catDatesDisplay = getPeriodDates(project.startDate, minSP, maxEP, project.periodType);
+                  } else {
+                    catDatesDisplay = { startDateISO: '', endDateISO: '', durationText: '-' };
+                  }
 
                   const lastCatIdx = project.categories.length - 1;
                   const lastCat = project.categories[lastCatIdx];
+                  const isHiddenDefaultCategory = cat.code === '1.0' && cat.title === 'งานทั่วไป' && project.categories.length === 1;
                   const lastCatHasSubTasks = lastCat && lastCat.subTasks.length > 0;
                   const isLastTaskRowForCat = catIdx === lastCatIdx && !lastCatHasSubTasks;
 
                   return (
                     <React.Fragment key={cat.id}>
-                      {/* Category Row */}
+                      {!isHiddenDefaultCategory && (
                       <tr className={`bg-slate-100 font-bold border-b border-slate-300 ${isLastTaskRowForCat ? 'last-task-row' : ''}`}>
                         <td className="p-1 border border-slate-300 text-center">{cat.code}</td>
-                        <td className="p-1 border border-slate-300">{cat.title}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.startDateISO)}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDates.endDateISO)}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{catDates.durationText}</td>
+                        <td className="p-1 border border-slate-300 whitespace-nowrap">{cat.title}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.startDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.endDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px]">{catDatesDisplay.durationText}</td>
                         {showBudget && <td className="p-1 border border-slate-300 text-right">{formatTHB(catM.budget)}</td>}
                         {showPlanned && <td className="p-1 border border-slate-300 text-center text-blue-700">{catM.plannedProgress}%</td>}
                         {showActual && <td className="p-1 border border-slate-300 text-center text-emerald-700">{catM.actualProgress}%</td>}
@@ -394,7 +405,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                           return (
                             <td 
                               key={h.periodIndex} 
-                              className={`p-0.5 border border-slate-300 bg-slate-50 relative h-4 ${
+                              className={`p-0.5 border border-slate-300 ${h.isOutOfMonth ? 'bg-slate-100/50' : 'bg-slate-50'} relative h-4 ${
                                 isFirstFirst ? 'period-cell-first-first' : ''
                               } ${
                                 isFirstLast ? 'period-cell-first-last' : ''
@@ -412,6 +423,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                           );
                         })}
                       </tr>
+                      )}
 
                     {/* Subtask Rows */}
                     {cat.subTasks.map((st, stIdx) => {
@@ -426,7 +438,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                       return (
                         <tr key={st.id} className={`border-b border-slate-200 ${isLastTaskRowForSubTask ? 'last-task-row' : ''}`}>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{st.code}</td>
-                          <td className="p-1 border border-slate-300 pl-3">{st.title}</td>
+                          <td className="p-1 border border-slate-300 pl-3 whitespace-nowrap">{st.title}</td>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.startDate || currentDates.startDateISO)}</td>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.endDate || currentDates.endDateISO)}</td>
                           <td className="p-1 border border-slate-300 text-center text-[9px]">{durationDays} วัน</td>
@@ -452,7 +464,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                             return (
                               <td 
                                 key={h.periodIndex} 
-                                className="p-0.5 border border-slate-300 text-center bg-white relative h-4"
+                                className={`p-0.5 border border-slate-300 text-center ${h.isOutOfMonth ? "bg-slate-50/50" : "bg-white"} relative h-4`}
                               >
                                 {printPeriodType === 'monthly' && (
                                   <div className="absolute inset-0 flex pointer-events-none">
@@ -492,7 +504,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                   </React.Fragment>
                 );
               })}
-              {showSCurve && (
+              {showSCurve && printPeriodType !== "single_month" && (
                 <>
                   {/* Planned Cumulative Row */}
                   <tr className={`bg-blue-50/40 font-bold border-t-2 ${showActual ? '' : 'border-b-2'} border-slate-300 break-inside-avoid`}>

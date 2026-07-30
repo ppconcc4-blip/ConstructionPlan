@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewMode, Project } from '../types';
-import { CalendarDays, ListTodo, TrendingUp } from 'lucide-react';
+import { CalendarDays, ListTodo, TrendingUp, Calendar } from 'lucide-react';
 
 interface ViewModeSelectorProps {
   viewMode: ViewMode;
@@ -43,12 +43,25 @@ export const ViewModeSelector: React.FC<ViewModeSelectorProps> = ({
         }`}
       >
         <ListTodo className="w-3.5 h-3.5" />
-        <span>ตารางรายเดือน</span>
+        <span>ตารางทั้งโครงการ</span>
         {activeProject.periodType === 'monthly' && (
           <span className="ml-0.5 px-1.5 py-0.5 bg-slate-900/40 text-[10px] rounded font-mono">
             {activeProject.totalPeriods}M
           </span>
         )}
+      </button>
+
+      <button
+        id="view-mode-single-month-btn"
+        onClick={() => onChangeViewMode('single_month')}
+        className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+          viewMode === 'single_month'
+            ? 'bg-amber-500 text-slate-950 shadow-sm'
+            : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+        }`}
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        <span>รายเดือน</span>
       </button>
 
       <button
