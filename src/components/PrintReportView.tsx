@@ -106,7 +106,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   };
 
   return (
-    <div className="bg-slate-200 min-h-screen text-slate-900 p-2 sm:p-4 overflow-auto flex flex-col items-center">
+    <div className="bg-slate-200 print:bg-white print:p-0 min-h-screen text-slate-900 p-2 sm:p-4 overflow-auto flex flex-col items-center">
       
       {/* Top Action Controls (hidden when printing) */}
       <div className="print:hidden w-full max-w-[420mm] mb-4 bg-white border border-slate-300 p-4 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4 text-slate-800 shadow-sm" style={{ maxWidth: '420mm' }}>
@@ -260,6 +260,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             margin: 0 !important;
             padding: 5mm !important;
             box-shadow: none !important;
+            border: none !important;
+            outline: none !important;
+            border-radius: 0 !important;
             background: white !important;
           }
           table, th, td, tr, thead, tbody {
@@ -286,7 +289,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       `}</style>
 
       {/* Printable Sheet */}
-      <div className="print-sheet mx-auto bg-white rounded-xl shadow-2xl text-slate-900 font-sans flex flex-col">
+      <div className="print-sheet mx-auto bg-white print:rounded-none print:shadow-none print:border-none rounded-xl shadow-2xl text-slate-900 font-sans flex flex-col">
         
         {/* Header Image from Google Drive */}
         <div className="mb-6 w-full flex justify-start">
