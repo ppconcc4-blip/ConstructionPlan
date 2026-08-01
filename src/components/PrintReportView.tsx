@@ -256,7 +256,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           .print-sheet {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: 297mm !important;
+            min-height: auto !important;
             margin: 0 !important;
             padding: 5mm !important;
             box-shadow: none !important;
