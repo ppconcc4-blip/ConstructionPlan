@@ -256,7 +256,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           .print-sheet {
             width: 100% !important;
             max-width: 100% !important;
-            min-height: auto !important;
+            min-height: 297mm !important;
             margin: 0 !important;
             padding: 5mm !important;
             box-shadow: none !important;
@@ -267,21 +267,11 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             background: transparent !important;
             color: black !important;
           }
-          table {
-            font-size: 7.5px !important;
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
           th, td {
-            padding: 1.5px 2px !important;
             border: 1px solid #000 !important;
-            font-size: 7px !important;
-            line-height: 1.15 !important;
             color: black !important;
           }
           img {
-            max-height: 40px !important;
-            object-fit: contain;
             page-break-inside: avoid;
             break-inside: avoid;
           }
@@ -363,8 +353,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                 </tr>
 
                 <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 text-center">
-                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50">วันเริ่มงาน</th>
-                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50">วันสิ้นสุดงาน</th>
+                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50 whitespace-nowrap">วันเริ่มงาน</th>
+                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50 whitespace-nowrap">วันสิ้นสุดงาน</th>
                   <th className="p-0.5 border border-slate-300 w-12 align-middle font-normal bg-slate-200/50">ระยะเวลา</th>
                   {(printPeriodType === 'weekly' || printPeriodType === 'single_month') && periodHeaders.map((h) => (
                     <th key={h.periodIndex} className={`p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px] ${h.isOutOfMonth ? "text-slate-400 font-normal" : ""}`}>
@@ -403,9 +393,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                       <tr className={`bg-slate-100 font-bold border-b border-slate-300 ${isLastTaskRowForCat ? 'last-task-row' : ''}`}>
                         <td className="p-1 border border-slate-300 text-center">{`${catIdx + 1}.0`}</td>
                         <td className="p-1 border border-slate-300 whitespace-nowrap">{cat.title}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.startDateISO)}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{formatThaiDate(catDatesDisplay.endDateISO)}</td>
-                        <td className="p-1 border border-slate-300 text-center text-[9px]">{catDatesDisplay.durationText}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px] whitespace-nowrap">{formatThaiDate(catDatesDisplay.startDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px] whitespace-nowrap">{formatThaiDate(catDatesDisplay.endDateISO)}</td>
+                        <td className="p-1 border border-slate-300 text-center text-[9px] whitespace-nowrap">{catDatesDisplay.durationText}</td>
                         {showBudget && <td className="p-1 border border-slate-300 text-right">{formatTHB(catM.budget)}</td>}
                         {showPlanned && <td className="p-1 border border-slate-300 text-center text-blue-700">{catM.plannedProgress}%</td>}
                         {showActual && <td className="p-1 border border-slate-300 text-center text-emerald-700">{catM.actualProgress}%</td>}
@@ -450,9 +440,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                         <tr key={st.id} className={`border-b border-slate-200 ${isLastTaskRowForSubTask ? 'last-task-row' : ''}`}>
                           <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{computedSubCode}</td>
                           <td className="p-1 border border-slate-300 pl-3 whitespace-nowrap">{st.title}</td>
-                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.startDate || currentDates.startDateISO)}</td>
-                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px]">{formatThaiDate(st.endDate || currentDates.endDateISO)}</td>
-                          <td className="p-1 border border-slate-300 text-center text-[9px]">{durationDays} วัน</td>
+                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px] whitespace-nowrap">{formatThaiDate(st.startDate || currentDates.startDateISO)}</td>
+                          <td className="p-1 border border-slate-300 text-center font-mono text-[9px] whitespace-nowrap">{formatThaiDate(st.endDate || currentDates.endDateISO)}</td>
+                          <td className="p-1 border border-slate-300 text-center text-[9px] whitespace-nowrap">{durationDays} วัน</td>
                           {showBudget && <td className="p-1 border border-slate-300 text-right">{formatTHB(st.budget)}</td>}
                           {showPlanned && <td className="p-1 border border-slate-300 text-center">{st.plannedProgress}%</td>}
                           {showActual && <td className="p-1 border border-slate-300 text-center font-bold text-emerald-700">{st.actualProgress}%</td>}
