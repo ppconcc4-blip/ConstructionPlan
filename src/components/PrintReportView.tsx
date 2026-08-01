@@ -51,10 +51,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         const lastRowBounds = lastRowEl.getBoundingClientRect();
         
         setGridRect({
-          left: firstBounds.left - containerBounds.left,
-          top: firstBounds.top - containerBounds.top,
-          width: lastBounds.right - firstBounds.left,
-          height: lastRowBounds.bottom - firstBounds.top
+          left: ((firstBounds.left - containerBounds.left) / containerBounds.width) * 100,
+          top: ((firstBounds.top - containerBounds.top) / containerBounds.height) * 100,
+          width: ((lastBounds.right - firstBounds.left) / containerBounds.width) * 100,
+          height: ((lastRowBounds.bottom - firstBounds.top) / containerBounds.height) * 100,
         });
       }
     };
@@ -223,12 +223,22 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body, html, #root, .bg-slate-200, .print-sheet, .overflow-x-auto, table, div {
+          body, html, #root, .bg-slate-200, .print-sheet, .overflow-x-auto {
             overflow: visible !important;
             overflow-x: visible !important;
             height: auto !important;
             scrollbar-width: none !important;
             -ms-overflow-style: none !important;
+          }
+          table {
+            overflow: visible !important;
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: auto !important;
           }
           ::-webkit-scrollbar {
             display: none !important;
@@ -622,17 +632,16 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             <svg
               className="absolute pointer-events-none"
               style={{
-                left: gridRect.left,
-                top: gridRect.top,
-                width: gridRect.width,
-                height: gridRect.height,
+                left: `${gridRect.left}%`,
+                top: `${gridRect.top}%`,
+                width: `${gridRect.width}%`,
+                height: `${gridRect.height}%`,
                 overflow: 'visible',
               }}
             >
               {(() => {
                 const getX = (i: number) => `${((i + 0.5) / periodHeaders.length) * 100}%`;
-                const paddingY = 0;
-                const getY = (val: number) => paddingY + (1 - val / 100) * (gridRect.height - 2 * paddingY);
+                const getY = (val: number) => `${100 - val}%`;
 
                 return (
                   <>
@@ -764,6 +773,15 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           )}
         </div>
       </div>
+
+                {/* Optional Full S-Curve Chart */}
+        {showSCurve && (
+          <div className="mt-8 break-inside-avoid page-break-inside-avoid print:bg-white print:text-black" style={{ maxHeight: '10cm' }}>
+            <div className="scale-[0.8] origin-top">
+              <SCurveChart project={project} viewMode={printPeriodType} hideToolbar={true} hideTable={true} hideYAxisLabels={false} />
+            </div>
+          </div>
+        )}
 
         {/* Footer Image from Google Drive */}
         <div className="mt-auto pt-4 w-full flex justify-end">
