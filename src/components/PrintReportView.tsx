@@ -248,7 +248,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           body, html {
             background: white !important;
             color: black !important;
-            font-size: 8px !important;
+            font-size: 10px !important;
           }
           .print\:hidden {
             display: none !important;
@@ -273,6 +273,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           th, td {
             border: 1px solid #000 !important;
             color: black !important;
+            font-size: 10px !important;
           }
           img {
             page-break-inside: avoid;
