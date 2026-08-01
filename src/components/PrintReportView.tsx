@@ -305,42 +305,28 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
               <div className="font-bold text-sm text-slate-700 mt-1">ประจำเดือน {getProjectMonthName(project.startDate, printSelectedMonthIndex)}</div>
             )}
           </div>
-          <div className="w-1/3 flex justify-end">
-            <table className="text-left leading-tight">
-              <tbody>
-                <tr>
-                  <td className="pr-2 pb-1">สัญญาจ้างเลขที่ :</td>
-                  <td className="pb-1">{project.code || '-'}</td>
-                </tr>
-                <tr>
-                  <td className="pr-2 pb-1">เริ่มสัญญาจ้างวันที่ :</td>
-                  <td className="pb-1">วันที่ {formatFullThaiDate(project.startDate)}</td>
-                </tr>
-                <tr>
-                  <td className="pr-2">สิ้นสุดสัญญาจ้างวันที่ :</td>
-                  <td>วันที่ {project.endDate ? formatFullThaiDate(project.endDate) : '-'}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="w-1/3 flex justify-end text-xs">
+            <div className="flex flex-col gap-1 text-left leading-tight">
+              <div className="flex"><span className="w-[120px]">สัญญาจ้างเลขที่ :</span><span>{project.code || '-'}</span></div>
+              <div className="flex"><span className="w-[120px]">เริ่มสัญญาจ้างวันที่ :</span><span>วันที่ {formatFullThaiDate(project.startDate)}</span></div>
+              <div className="flex"><span className="w-[120px]">สิ้นสุดสัญญาจ้างวันที่ :</span><span>วันที่ {project.endDate ? formatFullThaiDate(project.endDate) : '-'}</span></div>
+            </div>
           </div>
         </div>
 
         {/* Schedule Table */}
-        <div className="overflow-x-auto mb-3">
+        <div className="overflow-x-auto mb-3 px-8">
           <div className="relative inline-block min-w-full" ref={containerRef}>
             <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-slate-200 text-slate-800 font-bold border-b border-slate-300 text-center">
-                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-8 align-middle">ลำดับงาน</th>
-                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 align-middle text-left whitespace-nowrap">รายการงาน / หมวดงาน</th>
-                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันเริ่ม</th>
-                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-16 align-middle">วันสิ้นสุด</th>
-                  <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-12 align-middle">ระยะเวลา</th>
-                  {showBudget && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-20 text-right align-middle">งบประมาณ</th>}
-                  {showPlanned && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
-                  {showActual && <th rowSpan={(printPeriodType === 'weekly' || printPeriodType === 'single_month') ? 2 : 1} className="p-1 border border-slate-300 w-10 align-middle text-emerald-700">จริง %</th>}
+                  <th rowSpan={2} className="p-1 border border-slate-300 w-8 align-middle">ลำดับ<br/>งาน</th>
+                  <th rowSpan={2} className="p-1 border border-slate-300 align-middle text-left whitespace-nowrap">รายละเอียดงานก่อสร้าง</th>
+                  <th colSpan={3} className="p-1 border border-slate-300 align-middle bg-slate-300/50">กำหนดการก่อสร้าง (ปี พ.ศ. {projYearBE})</th>
+                  {showBudget && <th rowSpan={2} className="p-1 border border-slate-300 w-20 text-center align-middle leading-tight normal-case">มูลค่างาน<br/>ตามสัญญา<br/><span className="font-normal text-[8px] text-slate-500">(THB)</span></th>}
+                  {showPlanned && <th rowSpan={2} className="p-1 border border-slate-300 w-10 align-middle text-blue-700">แผน %</th>}
+                  {showActual && <th rowSpan={2} className="p-1 border border-slate-300 w-12 align-middle text-emerald-700">ผลงาน<br/>จริง %</th>}
                   
-
                   {printPeriodType === 'weekly' || printPeriodType === 'single_month' ? (
                     (printPeriodType === 'weekly' ? getMonthGroupsForWeekly(periodHeaders) : getWeekGroupsForDaily(periodHeaders)).map((group, idx) => (
                       <th key={idx} colSpan={group.colSpan} className="p-0.5 border border-slate-300 text-center font-bold text-amber-800 bg-amber-50/20 text-[8px] align-middle">
@@ -348,25 +334,24 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                       </th>
                     ))
                   ) : (
-
                     periodHeaders.map((h) => (
-                      <th key={h.periodIndex} className="p-0.5 border border-slate-300 text-center font-mono text-[8px] min-w-[28px] align-middle">
+                      <th key={h.periodIndex} rowSpan={2} className="p-0.5 border border-slate-300 text-center font-mono text-[8px] min-w-[28px] align-middle">
                         {h.label}
                       </th>
                     ))
                   )}
                 </tr>
 
-                {(printPeriodType === 'weekly' || printPeriodType === 'single_month') && (
-                  <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 text-center">
-                    {periodHeaders.map((h) => (
-                      <th key={h.periodIndex} className={`p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px] ${h.isOutOfMonth ? "text-slate-400 font-normal" : ""}`}>
-                        {printPeriodType === 'single_month' ? h.subLabel : h.label}
-                      </th>
-                    ))}
-                  </tr>
-                )}
-
+                <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 text-center">
+                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50">วันเริ่มงาน</th>
+                  <th className="p-0.5 border border-slate-300 w-16 align-middle font-normal bg-slate-200/50">วันสิ้นสุดงาน</th>
+                  <th className="p-0.5 border border-slate-300 w-12 align-middle font-normal bg-slate-200/50">ระยะเวลา</th>
+                  {(printPeriodType === 'weekly' || printPeriodType === 'single_month') && periodHeaders.map((h) => (
+                    <th key={h.periodIndex} className={`p-0.5 border border-slate-300 text-center font-mono text-[7px] min-w-[24px] ${h.isOutOfMonth ? "text-slate-400 font-normal" : ""}`}>
+                      {printPeriodType === 'single_month' ? h.subLabel : h.label}
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
                 {project.categories.map((cat, catIdx) => {
