@@ -106,55 +106,55 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   };
 
   return (
-    <div className="bg-slate-950 min-h-screen text-slate-900 p-4 sm:p-8 overflow-auto">
+    <div className="bg-slate-200 min-h-screen text-slate-900 p-2 sm:p-4 overflow-auto flex flex-col items-center">
       
       {/* Top Action Controls (hidden when printing) */}
-      <div className="print:hidden max-w-[297mm] mx-auto mb-6 bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 text-white" style={{ maxWidth: '420mm' }}>
+      <div className="print:hidden w-full max-w-[420mm] mb-4 bg-white border border-slate-300 p-4 rounded-xl flex flex-col md:flex-row items-center justify-between gap-4 text-slate-800 shadow-sm" style={{ maxWidth: '420mm' }}>
 
         <div>
           <h3 className="font-bold text-sm">หน้าพรีวิวสำหรับพิมพ์รายงาน (Landscape Print Preview)</h3>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             กระดาษแนวนอนอัตโนมัติ เลือกขนาดและรูปแบบหัวตาราง ได้ตามต้องการ พร้อมหัวตารางและท้ายตารางตามลิงก์ที่ระบุ
           </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-xs text-slate-300">
-            <span className="font-bold text-white mr-1">แสดงคอลัมน์ / ข้อมูล:</span>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+          <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200 text-xs text-slate-700">
+            <span className="font-bold text-slate-800 mr-1">แสดงคอลัมน์ / ข้อมูล:</span>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
               <input 
                 type="checkbox" 
                 checked={showBudget} 
                 onChange={(e) => setShowBudget(e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-800"
+                className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-indigo-500 focus:ring-indigo-500 "
               />
               มูลค่างาน
             </label>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
               <input 
                 type="checkbox" 
                 checked={showPlanned} 
                 onChange={(e) => setShowPlanned(e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-800"
+                className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-indigo-500 focus:ring-indigo-500 "
               />
               แผน %
             </label>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
               <input 
                 type="checkbox" 
                 checked={showActual} 
                 onChange={(e) => setShowActual(e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-indigo-500 focus:ring-indigo-500 focus:ring-offset-slate-800"
+                className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-indigo-500 focus:ring-indigo-500 "
               />
               ผลงานจริง %
             </label>
-            <span className="text-slate-500 px-0.5">|</span>
-            <label className="flex items-center gap-1.5 cursor-pointer hover:text-white font-semibold text-rose-400">
+            <span className="text-slate-300 px-0.5">|</span>
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900 font-semibold text-rose-600">
               <input 
                 type="checkbox" 
                 checked={showSCurve} 
                 onChange={(e) => setShowSCurve(e.target.checked)}
-                className="w-3.5 h-3.5 rounded bg-slate-700 border-slate-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-slate-800"
+                className="w-3.5 h-3.5 rounded border-slate-300 bg-white text-rose-500 focus:ring-rose-500 "
               />
               กราฟ S-Curve
             </label>
@@ -190,7 +190,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
               <select
                 value={printSelectedMonthIndex}
                 onChange={(e) => setPrintSelectedMonthIndex(Number(e.target.value))}
-                className="bg-slate-700 border-none text-white text-[11px] rounded px-2 py-1 ml-1 cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                className="bg-white border border-slate-300 text-slate-800 text-[11px] rounded px-2 py-1 ml-1 cursor-pointer focus:ring-1 focus:ring-indigo-500"
               >
                 {Array.from({ length: project.periodType === 'weekly' ? Math.ceil(project.totalPeriods / 4) : project.totalPeriods }).map((_, idx) => (
                   <option key={idx} value={idx + 1}>{getProjectMonthName(project.startDate, idx + 1)}</option>
@@ -206,7 +206,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           </button>
           <button
             onClick={onClosePrint}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3.5 py-2 rounded-lg transition"
+            className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-medium text-xs px-3.5 py-2 rounded-lg transition"
           >
             ปิดหน้าพรีวิว
           </button>
@@ -217,9 +217,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         @media print {
           @page {
             size: A3 landscape;
-            margin: 20mm !important;
+            margin: 5mm 10mm !important;
           }
-          body, html, #root, .bg-slate-950, .print-sheet, .overflow-x-auto, table, div {
+          body, html, #root, .bg-slate-200, .print-sheet, .overflow-x-auto, table, div {
             overflow: visible !important;
             overflow-x: visible !important;
             height: auto !important;
@@ -246,7 +246,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             max-width: 100% !important;
             min-height: auto !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 5mm !important; /* padding added to push away from edge if margins are 0 */
             box-shadow: none !important;
             background: white !important;
           }
@@ -315,7 +315,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         </div>
 
         {/* Schedule Table */}
-        <div className="overflow-x-auto mb-3 px-8">
+        <div className="overflow-x-auto mb-3">
           <div className="relative inline-block min-w-full" ref={containerRef}>
             <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
               <thead>
