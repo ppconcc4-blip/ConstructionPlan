@@ -78,6 +78,11 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   }, [showSCurve, showBudget, showPlanned, showActual, printPeriodType]);
   
   const summary = getProjectSummary(project);
+  const projYearBE = (() => {
+    const d = new Date(project.startDate || new Date().toISOString().split('T')[0]);
+    return isNaN(d.getTime()) ? new Date().getFullYear() + 543 : d.getFullYear() + 543;
+  })();
+
   
   const periodHeaders = printPeriodType === 'single_month'
     ? generateDailyHeadersForMonth(project.startDate, printSelectedMonthIndex)

@@ -561,7 +561,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 <th className="py-1.5 px-2 w-20 text-center border-r border-slate-700 normal-case font-normal">
                   ระยะเวลา
                 </th>
-                {viewMode === 'weekly' && periodHeaders.map((header) => (
+                {(viewMode === 'weekly' || viewMode === 'single_month') && periodHeaders.map((header) => (
                   <th
                     key={header.periodIndex}
                     className="py-1 px-1 text-center min-w-[50px] max-w-[75px] border-r border-slate-700/60 bg-slate-800/90 align-middle font-bold text-amber-400 text-[10px]"
