@@ -30,7 +30,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   const [showPlanned, setShowPlanned] = useState(true);
   const [showActual, setShowActual] = useState(true);
   const [printSelectedMonthIndex, setPrintSelectedMonthIndex] = useState<number>(1);
-  const [showSCurve, setShowSCurve] = useState(false);
+  const [showSCurve, setShowSCurve] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [gridRect, setGridRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
@@ -219,6 +219,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             size: A3 landscape;
             margin: 5mm 10mm !important;
           }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body, html, #root, .bg-slate-200, .print-sheet, .overflow-x-auto, table, div {
             overflow: visible !important;
             overflow-x: visible !important;
@@ -234,11 +238,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           body, html {
             background: white !important;
             color: black !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
             font-size: 8px !important;
           }
-          .print\\:hidden {
+          .print\:hidden {
             display: none !important;
           }
           .print-sheet {
@@ -246,9 +248,14 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             max-width: 100% !important;
             min-height: auto !important;
             margin: 0 !important;
-            padding: 5mm !important; /* padding added to push away from edge if margins are 0 */
+            padding: 5mm !important;
             box-shadow: none !important;
             background: white !important;
+          }
+          table, th, td, tr, thead, tbody {
+            background-color: transparent !important;
+            background: transparent !important;
+            color: black !important;
           }
           table {
             font-size: 7.5px !important;
@@ -257,13 +264,16 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           }
           th, td {
             padding: 1.5px 2px !important;
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #000 !important;
             font-size: 7px !important;
             line-height: 1.15 !important;
+            color: black !important;
           }
           img {
             max-height: 40px !important;
             object-fit: contain;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
         }
         @media screen {
