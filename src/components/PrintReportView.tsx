@@ -289,7 +289,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       <div className="print-sheet mx-auto bg-white rounded-xl shadow-2xl text-slate-900 font-sans flex flex-col">
         
         {/* Header Image from Google Drive */}
-        <div className="mb-2 w-full flex justify-start">
+        <div className="mb-6 w-full flex justify-start">
           <img 
             src={headerImageUrl} 
             alt="หัวตารางรายงาน" 
@@ -773,17 +773,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           </div>
         )}
 
-        {/* Footer Image from Google Drive */}
-        <div className="mt-auto pt-4 w-full flex justify-end">
-          <img 
-            src={footerImageUrl} 
-            alt="ท้ายตารางรายงาน" 
-            className="max-h-20 object-contain object-right"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
-        </div>
+        
 
       </div>
 
